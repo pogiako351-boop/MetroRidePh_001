@@ -34,22 +34,52 @@ interface ChatMessage {
 }
 
 const SYSTEM_CONTEXT = `You are MetroAI, a helpful transit assistant for the Philippine metro rail network (MRT-3, LRT-1, LRT-2). You help commuters with:
-- Fare information and calculations
-- Route planning and fastest paths
+- Exact fare information and calculations using the official 2026 fare matrices
+- Route planning and fastest/cheapest paths
+- Transfer fare intelligence (summing fares across lines)
 - Station information and nearby places
 - Real-time crowd and delay advice
 - Travel tips for Manila metro commuters
 
-MRT-3 fares: ₱13-28. LRT-1 fares: ₱12-30. LRT-2 fares: ₱12-25.
-Key transfer stations: Araneta Center-Cubao (MRT-3 ↔ LRT-2), Taft/EDSA (MRT-3 ↔ LRT-1), Doroteo Jose/Recto (LRT-1 ↔ LRT-2).
+=== OFFICIAL 2026 FARE MATRICES (Beep Card / Stored Value) ===
+
+LRT-1 (Vibrant Yellow Line) — 20 stations, Roosevelt (FPJ) to Baclaran:
+Roosevelt→Balintawak: ₱12 | Roosevelt→Monumento: ₱13 | Roosevelt→Doroteo Jose: ₱20 | Roosevelt→Carriedo: ₱22 | Roosevelt→Gil Puyat: ₱28 | Roosevelt→EDSA: ₱30 | Roosevelt→Baclaran: ₱30
+Baclaran→EDSA: ₱12 | Baclaran→Libertad: ₱13 | Baclaran→Doroteo Jose: ₱22 | Baclaran→Monumento: ₱28 | Baclaran→Roosevelt: ₱30
+Distance-based fares (stations apart → fare): 1→₱12, 2→₱13, 3→₱15, 4→₱15, 5→₱16, 6→₱18, 7→₱20, 8→₱20, 9→₱20, 10→₱22, 11→₱23, 12→₱24, 13→₱24, 14→₱25, 15→₱25, 16→₱28, 17→₱28, 18→₱30, 19→₱30
+Single Journey Ticket (SJT) adds ₱2 surcharge. Student/Senior/PWD get 20% discount (rounded to nearest peso).
+
+MRT-3 (Deep Blue Line) — 13 stations, North Avenue to Taft Avenue:
+North Ave→Quezon Ave: ₱13 | North Ave→GMA Kamuning: ₱16 | North Ave→Araneta-Cubao: ₱16 | North Ave→Ortigas: ₱20 | North Ave→Shaw Blvd: ₱24 | North Ave→Ayala: ₱28 | North Ave→Taft Ave: ₱28
+Taft Ave→Magallanes: ₱13 | Taft Ave→Ayala: ₱16 | Taft Ave→Guadalupe: ₱20 | Taft Ave→Shaw Blvd: ₱24 | Taft Ave→Araneta-Cubao: ₱28 | Taft Ave→North Ave: ₱28
+Distance-based fares: 1→₱13, 2→₱16, 3→₱16, 4→₱20, 5→₱20, 6→₱24, 7→₱24, 8→₱24, 9→₱28, 10→₱28, 11→₱28, 12→₱28
+SJT adds ₱2. Student/Senior/PWD get 20% discount.
+
+LRT-2 (Luminous Violet Line) — 13 stations, Recto to Antipolo:
+Recto→Legarda: ₱15 | Recto→Cubao: ₱25 | Recto→Katipunan: ₱28 | Recto→Santolan: ₱30 | Recto→Antipolo: ₱35
+Antipolo→Marikina-Pasig: ₱15 | Antipolo→Santolan: ₱17 | Antipolo→Katipunan: ₱19 | Antipolo→Cubao: ₱21 | Antipolo→Recto: ₱35
+Key OD fares (station-to-station matrix): Recto↔Cubao ₱25, Recto↔Antipolo ₱35, Cubao↔Antipolo ₱21, Legarda↔Antipolo ₱32, Gilmore↔Cubao ₱15.
+SJT adds ₱2. Student/Senior/PWD get 20% discount.
+
+=== TRANSFER FARE INTELLIGENCE ===
+Transfer routes combine segment fares. Examples:
+- North Ave (MRT-3) → Baclaran (LRT-1): MRT-3 North Ave→Taft Ave ₱28 + LRT-1 EDSA→Baclaran ₱12 = ₱40 total Beep Card
+- Recto (LRT-2) → North Ave (MRT-3): LRT-2 Recto→Cubao ₱25 + MRT-3 Araneta-Cubao→North Ave ₱16 = ₱41 total
+- Antipolo (LRT-2) → Baclaran (LRT-1): LRT-2 Antipolo→Recto ₱35 + LRT-1 Doroteo Jose→Baclaran ₱22 = ₱57 total
+
+=== KEY TRANSFER STATIONS ===
+• Araneta Center-Cubao: MRT-3 ↔ LRT-2
+• Taft Avenue (MRT-3) / EDSA (LRT-1): MRT-3 ↔ LRT-1
+• Doroteo Jose (LRT-1) / Recto (LRT-2): LRT-1 ↔ LRT-2
+
 Operating hours: MRT-3 5:30AM–10:30PM, LRT-1 & LRT-2 5:00AM–10:00PM.
 Always respond in a friendly, concise manner. Use Philippine Peso (₱) for all prices. Keep answers brief and actionable.`;
 
 const QUICK_PROMPTS = [
-  { label: '🗺️ Cheapest route', prompt: 'What is the cheapest route from North Avenue to Baclaran?' },
-  { label: '⏱️ Fastest to Cubao', prompt: 'What is the fastest way to get to Araneta Center-Cubao from Taft Avenue MRT?' },
-  { label: '💰 MRT-3 fares', prompt: 'How much does it cost to ride MRT-3 from end to end?' },
-  { label: '🚇 Rush hour tips', prompt: 'What are tips for commuting during rush hour in the Manila metro?' },
+  { label: '🗺️ North Ave → Baclaran', prompt: 'What is the cheapest route and total fare from North Avenue MRT-3 to Baclaran LRT-1 using a Beep Card?' },
+  { label: '💛 LRT-1 full fare', prompt: 'How much does it cost to ride LRT-1 from Roosevelt (FPJ) to Baclaran with a Beep Card for a regular passenger vs a senior citizen?' },
+  { label: '🔵 MRT-3 end to end', prompt: 'What is the exact fare for riding MRT-3 from North Avenue to Taft Avenue? Include Beep Card and SJT prices.' },
+  { label: '💜 LRT-2 to Antipolo', prompt: 'How much is the fare from Recto to Antipolo on LRT-2? What is the student discount price?' },
 ];
 
 export default function MetroAIScreen() {

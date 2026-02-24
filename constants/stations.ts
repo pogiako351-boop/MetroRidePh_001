@@ -25,9 +25,9 @@ export interface Station {
 }
 
 export const LINE_COLORS: Record<LineId, string> = {
-  'MRT-3': '#1A73E8',
-  'LRT-1': '#34A853',
-  'LRT-2': '#9C27B0',
+  'MRT-3': '#1143A8', // Deep Blue
+  'LRT-1': '#F5C500', // Vibrant Yellow
+  'LRT-2': '#9C27B0', // Luminous Violet
 };
 
 export const LINE_NAMES: Record<LineId, string> = {

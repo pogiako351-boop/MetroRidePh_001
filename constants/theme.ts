@@ -21,9 +21,9 @@ export const Colors = {
   crowdLight: '#34A853',
   crowdModerate: '#FBBC04',
   crowdHeavy: '#EA4335',
-  mrt3: '#1A73E8',
-  lrt1: '#34A853',
-  lrt2: '#9C27B0',
+  mrt3: '#1143A8',  // Deep Blue
+  lrt1: '#F5C500',  // Vibrant Yellow
+  lrt2: '#9C27B0',  // Luminous Violet
   shadow: 'rgba(0, 0, 0, 0.08)',
   shadowDark: 'rgba(0, 0, 0, 0.15)',
   overlay: 'rgba(0, 0, 0, 0.5)',

@@ -11,15 +11,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp, FadeIn, ZoomIn } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius, Shadow } from '@/constants/theme';
-import { Station } from '@/constants/stations';
+import { Station, LineId } from '@/constants/stations';
 import { Card } from '@/components/ui/Card';
 import { StationPicker } from '@/components/ui/StationPicker';
 import { RouteVisual } from '@/components/ui/RouteVisual';
 import { findRoutes } from '@/utils/routePlanner';
 import {
   RouteResult,
+  RouteSegment,
   TicketType,
   PassengerProfile,
   TICKET_TYPES,
@@ -27,18 +27,36 @@ import {
   computeFareBreakdown,
   FareBreakdown,
   SJT_SURCHARGE,
+  LINE_BRAND_COLORS,
+  LINE_ICONS,
+  LINE_FULL_NAMES,
+  LINE_SAVINGS_TIPS,
+  getPrimaryLine,
 } from '@/constants/fares';
+import {
+  hapticLight,
+  hapticMedium,
+  hapticSuccess,
+  hapticSelection,
+} from '@/utils/haptics';
 
-// ─── LRT-2 Colour ─────────────────────────────────────────────────────────────
-const LRT2_COLOR = '#9C27B0';
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+const DEFAULT_LINE: LineId = 'LRT-2';
+
+function getAccent(line: LineId) {
+  return LINE_BRAND_COLORS[line] ?? LINE_BRAND_COLORS['LRT-2'];
+}
 
 // ─── SegmentedToggle ──────────────────────────────────────────────────────────
 interface SegmentedToggleProps {
   value: TicketType;
   onChange: (v: TicketType) => void;
+  accentColor: string;
 }
 
-function SegmentedToggle({ value, onChange }: SegmentedToggleProps) {
+function SegmentedToggle({ value, onChange, accentColor }: SegmentedToggleProps) {
   return (
     <View style={toggleStyles.container}>
       {TICKET_TYPES.map((t) => {
@@ -46,20 +64,25 @@ function SegmentedToggle({ value, onChange }: SegmentedToggleProps) {
         return (
           <Pressable
             key={t.id}
-            style={[toggleStyles.segment, active && toggleStyles.segmentActive]}
+            style={[toggleStyles.segment, active && { backgroundColor: accentColor }]}
             onPress={() => {
               if (!active) {
                 onChange(t.id);
-                Haptics.selectionAsync();
+                hapticSelection();
               }
             }}
           >
             <Ionicons
               name={(t.icon + (active ? '' : '-outline')) as never}
               size={15}
-              color={active ? Colors.textOnPrimary : Colors.textSecondary}
+              color={active ? '#FFFFFF' : Colors.textSecondary}
             />
-            <Text style={[toggleStyles.label, active && toggleStyles.labelActive]}>
+            <Text
+              style={[
+                toggleStyles.label,
+                active && { color: '#FFFFFF' },
+              ]}
+            >
               {t.label}
             </Text>
           </Pressable>
@@ -87,16 +110,10 @@ const toggleStyles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: BorderRadius.md,
   },
-  segmentActive: {
-    backgroundColor: Colors.primary,
-  },
   label: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.semibold,
     color: Colors.textSecondary,
-  },
-  labelActive: {
-    color: Colors.textOnPrimary,
   },
 });
 
@@ -104,9 +121,11 @@ const toggleStyles = StyleSheet.create({
 interface PassengerSelectorProps {
   value: PassengerProfile;
   onChange: (v: PassengerProfile) => void;
+  accentColor: string;
+  accentSoft: string;
 }
 
-function PassengerSelector({ value, onChange }: PassengerSelectorProps) {
+function PassengerSelector({ value, onChange, accentColor, accentSoft }: PassengerSelectorProps) {
   return (
     <View style={psStyles.row}>
       {PASSENGER_PROFILES.map((p) => {
@@ -114,23 +133,37 @@ function PassengerSelector({ value, onChange }: PassengerSelectorProps) {
         return (
           <Pressable
             key={p.id}
-            style={[psStyles.pill, active && psStyles.pillActive]}
+            style={[
+              psStyles.pill,
+              active && { borderColor: accentColor, backgroundColor: accentSoft },
+            ]}
             onPress={() => {
               if (!active) {
                 onChange(p.id);
-                Haptics.selectionAsync();
+                hapticSelection();
               }
             }}
           >
             <Ionicons
               name={p.icon as never}
               size={14}
-              color={active ? LRT2_COLOR : Colors.textSecondary}
+              color={active ? accentColor : Colors.textSecondary}
             />
-            <Text style={[psStyles.label, active && psStyles.labelActive]}>{p.label}</Text>
+            <Text
+              style={[psStyles.label, active && { color: accentColor }]}
+            >
+              {p.label}
+            </Text>
             {p.discountRate > 0 && (
-              <View style={[psStyles.badge, active && psStyles.badgeActive]}>
-                <Text style={[psStyles.badgeText, active && psStyles.badgeTextActive]}>
+              <View
+                style={[psStyles.badge, active && { backgroundColor: accentColor }]}
+              >
+                <Text
+                  style={[
+                    psStyles.badgeText,
+                    active && { color: '#FFFFFF' },
+                  ]}
+                >
                   -{Math.round(p.discountRate * 100)}%
                 </Text>
               </View>
@@ -159,17 +192,10 @@ const psStyles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
   },
-  pillActive: {
-    borderColor: LRT2_COLOR,
-    backgroundColor: '#F3E5F5',
-  },
   label: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.semibold,
     color: Colors.textSecondary,
-  },
-  labelActive: {
-    color: LRT2_COLOR,
   },
   badge: {
     backgroundColor: Colors.border,
@@ -177,16 +203,113 @@ const psStyles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1,
   },
-  badgeActive: {
-    backgroundColor: LRT2_COLOR,
-  },
   badgeText: {
     fontSize: 9,
     fontWeight: FontWeight.bold,
     color: Colors.textSecondary,
   },
-  badgeTextActive: {
-    color: Colors.textOnPrimary,
+});
+
+// ─── Transfer Fare Intelligence Panel ────────────────────────────────────────
+interface TransferFarePanelProps {
+  segments: RouteSegment[];
+  ticketType: TicketType;
+  passengerProfile: PassengerProfile;
+}
+
+function TransferFarePanel({ segments, ticketType, passengerProfile }: TransferFarePanelProps) {
+  if (segments.length <= 1) return null;
+  return (
+    <View style={tfStyles.container}>
+      <View style={tfStyles.header}>
+        <Ionicons name="swap-horizontal" size={14} color={Colors.textSecondary} />
+        <Text style={tfStyles.headerText}>Transfer Fare Intelligence</Text>
+      </View>
+      {segments.map((seg, i) => {
+        const brand = getAccent(seg.line);
+        const segBD = computeFareBreakdown(seg.fare, ticketType, passengerProfile);
+        return (
+          <View key={i} style={tfStyles.row}>
+            <View style={[tfStyles.lineBadge, { backgroundColor: brand.soft }]}>
+              <Text style={[tfStyles.lineBadgeText, { color: brand.softText }]}>
+                {LINE_ICONS[seg.line]}
+              </Text>
+            </View>
+            <View style={tfStyles.segInfo}>
+              <Text style={tfStyles.segRoute} numberOfLines={1}>
+                {seg.from} → {seg.to}
+              </Text>
+              <Text style={tfStyles.segStats}>
+                {seg.stations} stations · {seg.time} min
+              </Text>
+            </View>
+            <Text style={[tfStyles.segFare, { color: brand.softText }]}>
+              ₱{segBD.finalFare}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const tfStyles = StyleSheet.create({
+  container: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.sm,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingBottom: Spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  headerText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  lineBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: BorderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lineBadgeText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.heavy,
+  },
+  segInfo: {
+    flex: 1,
+  },
+  segRoute: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.text,
+  },
+  segStats: {
+    fontSize: FontSize.xs,
+    color: Colors.textTertiary,
+    marginTop: 1,
+  },
+  segFare: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.bold,
   },
 });
 
@@ -197,6 +320,8 @@ interface FareReceiptCardProps {
   totalTime: number;
   totalStations: number;
   transfers: number;
+  primaryLine: LineId;
+  segments: RouteSegment[];
 }
 
 function FareReceiptCard({
@@ -205,21 +330,53 @@ function FareReceiptCard({
   totalTime,
   totalStations,
   transfers,
+  primaryLine,
+  segments,
 }: FareReceiptCardProps) {
   const { baseFare, sjtSurcharge, discountAmount, finalFare, ticketType, passengerProfile } =
     breakdown;
   const profileInfo = PASSENGER_PROFILES.find((p) => p.id === passengerProfile)!;
   const showSJT = sjtSurcharge > 0;
   const showDiscount = discountAmount > 0;
+  const brand = getAccent(primaryLine);
+
+  // For multi-line routes, collect unique lines for badges
+  const uniqueLines = Array.from(new Set(segments.map((s) => s.line)));
 
   return (
     <Animated.View entering={ZoomIn.springify().damping(14).stiffness(120)}>
       <View style={receiptStyles.outer}>
-        {/* Header strip */}
-        <View style={receiptStyles.header}>
+        {/* Header strip — dynamic line accent color */}
+        <View style={[receiptStyles.header, { backgroundColor: brand.primary }]}>
           <View style={receiptStyles.headerLeft}>
-            <Ionicons name="receipt" size={18} color={Colors.textOnPrimary} />
-            <Text style={receiptStyles.headerTitle}>Fare Receipt</Text>
+            {/* Line icon badge(s) */}
+            {uniqueLines.map((line) => (
+              <View
+                key={line}
+                style={[
+                  receiptStyles.lineIconBadge,
+                  {
+                    backgroundColor:
+                      line === primaryLine
+                        ? 'rgba(255,255,255,0.28)'
+                        : 'rgba(255,255,255,0.14)',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    receiptStyles.lineIconText,
+                    { color: brand.textOnBrand },
+                  ]}
+                >
+                  {LINE_ICONS[line]}
+                </Text>
+              </View>
+            ))}
+            <Ionicons name="receipt" size={16} color={brand.textOnBrand} />
+            <Text style={[receiptStyles.headerTitle, { color: brand.textOnBrand }]}>
+              Fare Receipt
+            </Text>
           </View>
           <View style={receiptStyles.headerRight}>
             {isCheapest && (
@@ -228,9 +385,9 @@ function FareReceiptCard({
                 <Text style={receiptStyles.bestBadgeText}>Cheapest</Text>
               </View>
             )}
-            <View style={receiptStyles.ticketBadge}>
-              <Text style={receiptStyles.ticketBadgeText}>
-                {ticketType === 'beep' ? '💳 Beep Card' : '🎫 SJT'}
+            <View style={[receiptStyles.ticketBadge, { backgroundColor: 'rgba(255,255,255,0.20)' }]}>
+              <Text style={[receiptStyles.ticketBadgeText, { color: brand.textOnBrand }]}>
+                {ticketType === 'beep' ? '💳 Beep' : '🎫 SJT'}
               </Text>
             </View>
           </View>
@@ -272,7 +429,7 @@ function FareReceiptCard({
           {/* Base fare */}
           <View style={receiptStyles.lineItem}>
             <View style={receiptStyles.lineItemLeft}>
-              <View style={[receiptStyles.lineItemDot, { backgroundColor: Colors.primary }]} />
+              <View style={[receiptStyles.lineItemDot, { backgroundColor: brand.primary }]} />
               <Text style={receiptStyles.lineItemLabel}>Base Fare</Text>
             </View>
             <Text style={receiptStyles.lineItemAmount}>₱{baseFare.toFixed(2)}</Text>
@@ -318,8 +475,10 @@ function FareReceiptCard({
           <View style={receiptStyles.totalRow}>
             <Text style={receiptStyles.totalLabel}>TOTAL</Text>
             <View style={receiptStyles.totalAmountRow}>
-              <Text style={receiptStyles.totalCurrency}>₱</Text>
-              <Text style={receiptStyles.totalAmount}>{finalFare}</Text>
+              <Text style={[receiptStyles.totalCurrency, { color: brand.primary }]}>₱</Text>
+              <Text style={[receiptStyles.totalAmount, { color: brand.primary }]}>
+                {finalFare}
+              </Text>
             </View>
           </View>
         </View>
@@ -331,11 +490,11 @@ function FareReceiptCard({
           <View style={receiptStyles.perf} />
         </View>
 
-        {/* Footer */}
-        <View style={receiptStyles.footer}>
-          <Ionicons name="shield-checkmark-outline" size={13} color={Colors.textTertiary} />
-          <Text style={receiptStyles.footerText}>
-            Official 2026 LRT-2 fare matrix • Stored locally for offline use
+        {/* Footer — 2026 Precision badge */}
+        <View style={[receiptStyles.footer, { backgroundColor: brand.soft }]}>
+          <Ionicons name="shield-checkmark" size={13} color={brand.softText} />
+          <Text style={[receiptStyles.footerText, { color: brand.softText }]}>
+            2026 Precision · {uniqueLines.map((l) => LINE_FULL_NAMES[l]).join(' + ')} matrix · Offline ready
           </Text>
         </View>
       </View>
@@ -352,7 +511,6 @@ const receiptStyles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   header: {
-    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -364,10 +522,19 @@ const receiptStyles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
+  lineIconBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  lineIconText: {
+    fontSize: 11,
+    fontWeight: FontWeight.heavy,
+    letterSpacing: 0.5,
+  },
   headerTitle: {
     fontSize: FontSize.md,
     fontWeight: FontWeight.bold,
-    color: Colors.textOnPrimary,
   },
   headerRight: {
     flexDirection: 'row',
@@ -378,7 +545,7 @@ const receiptStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: 'rgba(52,168,83,0.2)',
+    backgroundColor: 'rgba(52,168,83,0.22)',
     borderRadius: BorderRadius.full,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -389,7 +556,6 @@ const receiptStyles = StyleSheet.create({
     color: '#A8FFB4',
   },
   ticketBadge: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
     borderRadius: BorderRadius.full,
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -397,7 +563,6 @@ const receiptStyles = StyleSheet.create({
   ticketBadgeText: {
     fontSize: FontSize.xs,
     fontWeight: FontWeight.semibold,
-    color: Colors.textOnPrimary,
   },
   perforatedRow: {
     flexDirection: 'row',
@@ -417,7 +582,6 @@ const receiptStyles = StyleSheet.create({
     borderStyle: 'dashed',
     borderWidth: 1,
     borderColor: Colors.border,
-    marginVertical: 0,
   },
   statsRow: {
     flexDirection: 'row',
@@ -498,38 +662,45 @@ const receiptStyles = StyleSheet.create({
   totalCurrency: {
     fontSize: FontSize.lg,
     fontWeight: FontWeight.bold,
-    color: Colors.primary,
   },
   totalAmount: {
     fontSize: 42,
     fontWeight: FontWeight.heavy,
-    color: Colors.primary,
     letterSpacing: -1,
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: Colors.background,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
   },
   footerText: {
     fontSize: FontSize.xs,
-    color: Colors.textTertiary,
     flex: 1,
     flexWrap: 'wrap',
+    fontWeight: FontWeight.medium,
   },
 });
 
-// ─── BeepTooltip ──────────────────────────────────────────────────────────────
-interface BeepTooltipProps {
+// ─── SmartSavingsTooltip ───────────────────────────────────────────────────────
+interface SmartSavingsTooltipProps {
   savings: number;
   visible: boolean;
+  primaryLine: LineId;
+  passengerProfile: PassengerProfile;
 }
 
-function BeepTooltip({ savings, visible }: BeepTooltipProps) {
+function SmartSavingsTooltip({
+  savings,
+  visible,
+  primaryLine,
+  passengerProfile,
+}: SmartSavingsTooltipProps) {
   const opacity = useRef(new RNAnimated.Value(0)).current;
+  const brand = getAccent(primaryLine);
+  const profileInfo = PASSENGER_PROFILES.find((p) => p.id === passengerProfile)!;
+  const savingsTip = LINE_SAVINGS_TIPS[primaryLine];
 
   useEffect(() => {
     RNAnimated.timing(opacity, {
@@ -541,15 +712,23 @@ function BeepTooltip({ savings, visible }: BeepTooltipProps) {
 
   return (
     <RNAnimated.View style={[tooltipStyles.container, { opacity }]}>
-      <View style={tooltipStyles.bubble}>
-        <Text style={tooltipStyles.emoji}>💳</Text>
+      <View style={[tooltipStyles.bubble, { borderColor: brand.primary + '40', backgroundColor: brand.soft }]}>
+        <Text style={tooltipStyles.emoji}>💰</Text>
         <View style={{ flex: 1 }}>
-          <Text style={tooltipStyles.title}>Save ₱{savings} with Beep Card!</Text>
+          <Text style={[tooltipStyles.title, { color: brand.softText }]}>
+            Save ₱{savings} with Beep Card!
+          </Text>
           <Text style={tooltipStyles.subtitle}>
-            Switch to Beep Card to avoid the ₱{SJT_SURCHARGE} single-journey surcharge.
+            {profileInfo.discountRate > 0
+              ? `You qualify for the 20% ${profileInfo.label} discount! ${savingsTip}`
+              : savingsTip}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+        <View style={[tooltipStyles.linePill, { backgroundColor: brand.primary }]}>
+          <Text style={[tooltipStyles.linePillText, { color: brand.textOnBrand }]}>
+            {LINE_ICONS[primaryLine]}
+          </Text>
+        </View>
       </View>
     </RNAnimated.View>
   );
@@ -563,11 +742,9 @@ const tooltipStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.primarySoft,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.primary + '33',
   },
   emoji: {
     fontSize: 22,
@@ -575,12 +752,22 @@ const tooltipStyles = StyleSheet.create({
   title: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.bold,
-    color: Colors.primary,
   },
   subtitle: {
     fontSize: FontSize.xs,
     color: Colors.textSecondary,
     marginTop: 2,
+    lineHeight: 16,
+  },
+  linePill: {
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  linePillText: {
+    fontSize: 11,
+    fontWeight: FontWeight.heavy,
+    letterSpacing: 0.5,
   },
 });
 
@@ -595,10 +782,15 @@ export default function FareCalculatorScreen() {
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const [calculated, setCalculated] = useState(false);
 
-  // New state
   const [ticketType, setTicketType] = useState<TicketType>('beep');
   const [passengerProfile, setPassengerProfile] = useState<PassengerProfile>('regular');
   const [breakdown, setBreakdown] = useState<FareBreakdown | null>(null);
+
+  // Derive primary line from current route
+  const selectedRoute = routes[selectedRouteIndex];
+  const primaryLine: LineId =
+    selectedRoute ? getPrimaryLine(selectedRoute.segments) : DEFAULT_LINE;
+  const accentBrand = getAccent(primaryLine);
 
   // Recompute breakdown whenever route or options change
   useEffect(() => {
@@ -610,7 +802,8 @@ export default function FareCalculatorScreen() {
     if (!route) return;
     const bd = computeFareBreakdown(route.totalFare, ticketType, passengerProfile);
     setBreakdown(bd);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Haptic pulse on fare recalculation
+    hapticLight();
   }, [calculated, routes, selectedRouteIndex, ticketType, passengerProfile]);
 
   const handleSwap = useCallback(() => {
@@ -620,7 +813,7 @@ export default function FareCalculatorScreen() {
     setCalculated(false);
     setRoutes([]);
     setBreakdown(null);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticMedium();
   }, [fromStation, toStation]);
 
   const handleCalculate = useCallback(() => {
@@ -629,19 +822,32 @@ export default function FareCalculatorScreen() {
     setRoutes(result);
     setSelectedRouteIndex(0);
     setCalculated(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    hapticSuccess();
   }, [fromStation, toStation]);
 
   const handleSelectRoute = useCallback((idx: number) => {
     setSelectedRouteIndex(idx);
-    Haptics.selectionAsync();
+    hapticSelection();
+  }, []);
+
+  const handleFromSelect = useCallback((s: Station) => {
+    setFromStation(s);
+    setCalculated(false);
+    setRoutes([]);
+    hapticLight();
+  }, []);
+
+  const handleToSelect = useCallback((s: Station) => {
+    setToStation(s);
+    setCalculated(false);
+    setRoutes([]);
+    hapticLight();
   }, []);
 
   const canCalculate = fromStation && toStation && fromStation.id !== toStation.id;
-  const selectedRoute = routes[selectedRouteIndex];
 
-  // Show Beep tooltip when SJT is selected and there's a surcharge
-  const showBeepTooltip = calculated && ticketType === 'sjt' && routes.length > 0;
+  // Show smart savings tooltip when SJT is selected and there's a surcharge
+  const showSavingsTooltip = calculated && ticketType === 'sjt' && routes.length > 0;
   const beepSavings = SJT_SURCHARGE;
 
   return (
@@ -653,9 +859,22 @@ export default function FareCalculatorScreen() {
         </Pressable>
         <View style={styles.headerTitleRow}>
           <Text style={styles.headerTitle}>Fare Calculator</Text>
-          <View style={styles.lrt2Badge}>
-            <View style={[styles.lrt2Dot, { backgroundColor: LRT2_COLOR }]} />
-            <Text style={styles.lrt2BadgeText}>2026 Matrix</Text>
+          {/* 2026 Precision badge — dynamically colored by active line */}
+          <View
+            style={[
+              styles.precisionBadge,
+              { backgroundColor: accentBrand.soft },
+            ]}
+          >
+            <View
+              style={[
+                styles.precisionDot,
+                { backgroundColor: accentBrand.primary },
+              ]}
+            />
+            <Text style={[styles.precisionBadgeText, { color: accentBrand.softText }]}>
+              2026 Precision · {LINE_ICONS[primaryLine]}
+            </Text>
           </View>
         </View>
         <View style={styles.navButton} />
@@ -670,18 +889,17 @@ export default function FareCalculatorScreen() {
           <StationPicker
             label="From"
             selectedStation={fromStation}
-            onSelect={(s) => {
-              setFromStation(s);
-              setCalculated(false);
-              setRoutes([]);
-            }}
+            onSelect={handleFromSelect}
             excludeStationId={toStation?.id}
           />
 
           <View style={styles.swapContainer}>
             <View style={styles.swapLine} />
-            <Pressable style={styles.swapButton} onPress={handleSwap}>
-              <Ionicons name="swap-vertical" size={20} color={Colors.primary} />
+            <Pressable
+              style={[styles.swapButton, { backgroundColor: accentBrand.soft }]}
+              onPress={handleSwap}
+            >
+              <Ionicons name="swap-vertical" size={20} color={accentBrand.primary} />
             </Pressable>
             <View style={styles.swapLine} />
           </View>
@@ -689,47 +907,57 @@ export default function FareCalculatorScreen() {
           <StationPicker
             label="To"
             selectedStation={toStation}
-            onSelect={(s) => {
-              setToStation(s);
-              setCalculated(false);
-              setRoutes([]);
-            }}
+            onSelect={handleToSelect}
             excludeStationId={fromStation?.id}
           />
         </Animated.View>
 
-        {/* Ticket Type Toggle */}
+        {/* Ticket Type Toggle & Passenger Selector */}
         <Animated.View entering={FadeInDown.duration(400).delay(80)} style={styles.optionsCard}>
           <View style={styles.optionSection}>
             <View style={styles.optionLabelRow}>
               <Ionicons name="card-outline" size={16} color={Colors.textSecondary} />
               <Text style={styles.optionLabel}>Ticket Type</Text>
             </View>
-            <SegmentedToggle value={ticketType} onChange={setTicketType} />
+            <SegmentedToggle
+              value={ticketType}
+              onChange={setTicketType}
+              accentColor={accentBrand.primary}
+            />
           </View>
 
           <View style={styles.optionDivider} />
 
-          {/* Passenger Profile */}
           <View style={styles.optionSection}>
             <View style={styles.optionLabelRow}>
               <Ionicons name="person-outline" size={16} color={Colors.textSecondary} />
               <Text style={styles.optionLabel}>Passenger Profile</Text>
-              <Text style={styles.discountNote}>Statutory 20% discount applies</Text>
+              <Text style={styles.discountNote}>Statutory 20% discount</Text>
             </View>
-            <PassengerSelector value={passengerProfile} onChange={setPassengerProfile} />
+            <PassengerSelector
+              value={passengerProfile}
+              onChange={setPassengerProfile}
+              accentColor={accentBrand.primary}
+              accentSoft={accentBrand.soft}
+            />
           </View>
         </Animated.View>
 
         {/* Calculate Button */}
         <Animated.View entering={FadeInDown.duration(400).delay(160)}>
           <Pressable
-            style={[styles.calculateButton, !canCalculate && styles.calculateButtonDisabled]}
+            style={[
+              styles.calculateButton,
+              { backgroundColor: accentBrand.primary },
+              !canCalculate && styles.calculateButtonDisabled,
+            ]}
             onPress={handleCalculate}
             disabled={!canCalculate}
           >
-            <Ionicons name="calculator" size={20} color={Colors.textOnPrimary} />
-            <Text style={styles.calculateButtonText}>Calculate Fare</Text>
+            <Ionicons name="calculator" size={20} color={accentBrand.textOnBrand} />
+            <Text style={[styles.calculateButtonText, { color: accentBrand.textOnBrand }]}>
+              Calculate Fare
+            </Text>
           </Pressable>
         </Animated.View>
 
@@ -737,28 +965,47 @@ export default function FareCalculatorScreen() {
         {calculated && routes.length > 0 && selectedRoute && breakdown && (
           <Animated.View entering={FadeInUp.duration(500)}>
 
-            {/* Beep savings tooltip */}
-            <BeepTooltip visible={showBeepTooltip} savings={beepSavings} />
+            {/* Smart Savings Tooltip */}
+            <SmartSavingsTooltip
+              visible={showSavingsTooltip}
+              savings={beepSavings}
+              primaryLine={primaryLine}
+              passengerProfile={passengerProfile}
+            />
 
-            {/* Fare Receipt */}
+            {/* Fare Receipt Card */}
             <FareReceiptCard
               breakdown={breakdown}
               isCheapest={!!selectedRoute.isCheapest}
               totalTime={selectedRoute.totalTime}
               totalStations={selectedRoute.totalStations}
               transfers={selectedRoute.transfers}
+              primaryLine={primaryLine}
+              segments={selectedRoute.segments}
             />
 
-            {/* LRT-2 only notice */}
-            {selectedRoute.segments.length === 1 &&
-              selectedRoute.segments[0].line === 'LRT-2' && (
-              <Animated.View entering={FadeIn.duration(300)} style={styles.matrixNotice}>
-                <Ionicons name="information-circle" size={16} color={LRT2_COLOR} />
-                <Text style={styles.matrixNoticeText}>
-                  Fare sourced from official 2026 LRT-2 station-to-station matrix
-                </Text>
+            {/* Transfer Fare Intelligence */}
+            {selectedRoute.transfers > 0 && (
+              <Animated.View entering={FadeIn.duration(300)}>
+                <TransferFarePanel
+                  segments={selectedRoute.segments}
+                  ticketType={ticketType}
+                  passengerProfile={passengerProfile}
+                />
               </Animated.View>
             )}
+
+            {/* Precision matrix notice */}
+            <Animated.View entering={FadeIn.duration(300)} style={[
+              styles.matrixNotice,
+              { backgroundColor: accentBrand.soft },
+            ]}>
+              <Ionicons name="shield-checkmark" size={15} color={accentBrand.primary} />
+              <Text style={[styles.matrixNoticeText, { color: accentBrand.softText }]}>
+                Official 2026 {Array.from(new Set(selectedRoute.segments.map((s) => LINE_FULL_NAMES[s.line]))).join(' + ')} station-to-station{' '}
+                {selectedRoute.segments.length > 1 ? 'matrices' : 'matrix'} — precision fare lookup active
+              </Text>
+            </Animated.View>
 
             {/* Route Options */}
             {routes.length > 1 && (
@@ -772,33 +1019,35 @@ export default function FareCalculatorScreen() {
                         ticketType,
                         passengerProfile,
                       );
+                      const routePrimaryLine = getPrimaryLine(route.segments);
+                      const routeBrand = getAccent(routePrimaryLine);
+                      const isSelected = selectedRouteIndex === index;
                       return (
                         <Pressable
                           key={index}
                           style={[
                             styles.routeOptionChip,
-                            selectedRouteIndex === index && styles.routeOptionChipActive,
+                            isSelected && {
+                              backgroundColor: routeBrand.primary,
+                              borderColor: routeBrand.primary,
+                            },
                           ]}
                           onPress={() => handleSelectRoute(index)}
                         >
                           <Text
                             style={[
                               styles.routeOptionText,
-                              selectedRouteIndex === index && styles.routeOptionTextActive,
+                              isSelected && { color: routeBrand.textOnBrand },
                             ]}
                           >
-                            ₱{routeBD.finalFare} · {route.totalTime}min
+                            {LINE_ICONS[routePrimaryLine]} ₱{routeBD.finalFare} · {route.totalTime}min
                             {route.transfers > 0 ? ` · ${route.transfers}T` : ''}
                           </Text>
                           {route.isCheapest && (
                             <Ionicons
                               name="checkmark-circle"
                               size={14}
-                              color={
-                                selectedRouteIndex === index
-                                  ? Colors.textOnPrimary
-                                  : Colors.success
-                              }
+                              color={isSelected ? routeBrand.textOnBrand : Colors.success}
                             />
                           )}
                         </Pressable>
@@ -863,24 +1112,22 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
     color: Colors.text,
   },
-  lrt2Badge: {
+  precisionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F3E5F5',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: BorderRadius.full,
   },
-  lrt2Dot: {
+  precisionDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
   },
-  lrt2BadgeText: {
+  precisionBadgeText: {
     fontSize: FontSize.xs,
     fontWeight: FontWeight.semibold,
-    color: LRT2_COLOR,
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
@@ -908,7 +1155,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -948,18 +1194,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.lg,
     marginBottom: Spacing.xl,
     ...Shadow.md,
   },
   calculateButtonDisabled: {
-    backgroundColor: Colors.textTertiary,
-    opacity: 0.6,
+    opacity: 0.5,
   },
   calculateButtonText: {
-    color: Colors.textOnPrimary,
     fontSize: FontSize.lg,
     fontWeight: FontWeight.bold,
   },
@@ -967,16 +1210,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    backgroundColor: '#F3E5F5',
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.md,
   },
   matrixNoticeText: {
     fontSize: FontSize.xs,
-    color: LRT2_COLOR,
     fontWeight: FontWeight.medium,
     flex: 1,
+    lineHeight: 16,
   },
   routeOptions: {
     marginBottom: Spacing.lg,
@@ -1002,17 +1244,10 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
   },
-  routeOptionChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
   routeOptionText: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.semibold,
     color: Colors.textSecondary,
-  },
-  routeOptionTextActive: {
-    color: Colors.textOnPrimary,
   },
   routeCard: {
     marginBottom: Spacing.lg,
