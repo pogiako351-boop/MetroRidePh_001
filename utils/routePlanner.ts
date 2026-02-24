@@ -68,7 +68,8 @@ function buildDirectRoute(from: Station, to: Station): RouteSegment {
     fromIndex: from.lineIndex,
     toIndex: to.lineIndex,
     stations: stationCount,
-    fare: calculateFare(from.line, stationCount),
+    // For LRT-2, pass fromIndex/toIndex so calculateFare uses the official matrix
+    fare: calculateFare(from.line, stationCount, from.lineIndex, to.lineIndex),
     time: calculateTravelTime(from.line, stationCount),
     direction: getDirection(from.line, from.lineIndex, to.lineIndex),
     stationNames: getStationNamesBetween(from.line, from.lineIndex, to.lineIndex),
