@@ -1,509 +1,612 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   ScrollView,
   Pressable,
-  Animated,
+  Animated as RNAnimated,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSize, FontWeight, BorderRadius, Shadow } from '@/constants/theme';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { adapty, shouldEnableMock } from 'react-native-adapty';
+import type { AdaptyPaywallProduct, AdaptyProfile } from 'react-native-adapty';
+import { Colors, FontSize, FontWeight, BorderRadius, Spacing, Shadow } from '@/constants/theme';
 
-const PREMIUM_FEATURES = [
+const ADAPTY_API_KEY = process.env.EXPO_PUBLIC_ADAPTY_API_KEY ?? 'public_live_mock';
+const PLACEMENT_ID = process.env.EXPO_PUBLIC_ADAPTY_PLACEMENT_ID ?? 'premium';
+
+const FEATURES = [
   {
-    icon: 'ban-outline' as const,
-    title: 'Ad-Free Experience',
-    description: 'Enjoy MetroRide PH without any ads or interruptions',
+    icon: 'chatbubbles-outline' as const,
+    color: Colors.violet,
+    title: 'MetroAI Assistant',
+    description: 'Chat with AI for instant route & fare advice',
+    isPremium: false,
+  },
+  {
+    icon: 'eye-outline' as const,
+    color: Colors.violet,
+    title: 'MetroAI Vision 🔒',
+    description: 'Upload station photos for crowd & delay analysis',
+    isPremium: true,
   },
   {
     icon: 'notifications-outline' as const,
-    title: 'Push Notifications',
-    description: 'Get instant alerts for delays, maintenance, and schedule changes',
+    color: Colors.amber,
+    title: 'Real-time Push Alerts 🔒',
+    description: 'Get notified instantly of delays and service changes',
+    isPremium: true,
   },
   {
-    icon: 'cloud-offline-outline' as const,
-    title: 'Full Offline Mode',
-    description: 'Access all features without internet — maps, fares, and schedules',
+    icon: 'map-outline' as const,
+    color: Colors.primary,
+    title: 'Interactive System Map',
+    description: 'Pinch-to-zoom SVG map of all 3 metro lines',
+    isPremium: false,
   },
   {
-    icon: 'people-outline' as const,
-    title: 'Real-time Crowd Data',
-    description: 'Live crowd predictions powered by AI for all stations',
+    icon: 'trending-up-outline' as const,
+    color: Colors.success,
+    title: 'Smart Crowd Predictions 🔒',
+    description: 'Predicted crowd levels up to 2 hours ahead',
+    isPremium: true,
+  },
+  {
+    icon: 'alarm-outline' as const,
+    color: Colors.amber,
+    title: 'Departure Reminders',
+    description: 'Smart alerts 30 min before your usual commute',
+    isPremium: false,
   },
   {
     icon: 'star-outline' as const,
+    color: '#F4B400',
     title: 'Unlimited Favorites',
-    description: 'Save unlimited stations and routes with custom labels',
+    description: 'Save all your stations and routes without limits',
+    isPremium: false,
   },
   {
-    icon: 'color-palette-outline' as const,
-    title: 'Premium Themes',
-    description: 'Customize your app with exclusive dark mode and color themes',
-  },
-];
-
-const PLANS = [
-  {
-    id: 'monthly',
-    name: 'Monthly',
-    price: '₱149',
-    period: '/month',
-    savings: null,
-    popular: false,
-  },
-  {
-    id: 'annual',
-    name: 'Annual',
-    price: '₱999',
-    period: '/year',
-    savings: 'Save 44%',
-    popular: true,
+    icon: 'shield-checkmark-outline' as const,
+    color: Colors.success,
+    title: 'Ad-Free Experience 🔒',
+    description: 'Enjoy MetroRide completely distraction-free',
+    isPremium: true,
   },
 ];
 
 export default function PremiumScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [selectedPlan, setSelectedPlan] = React.useState('annual');
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const [products, setProducts] = useState<AdaptyPaywallProduct[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<AdaptyPaywallProduct | null>(null);
+  const [profile, setProfile] = useState<AdaptyProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const isMock = shouldEnableMock();
+
+  const shimmerAnim = useRef(new RNAnimated.Value(0)).current;
+  const badgeAnim = useRef(new RNAnimated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    const shimmer = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
-        Animated.timing(shimmerAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
+    const shimmer = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(shimmerAnim, { toValue: 1, duration: 1600, useNativeDriver: true }),
+        RNAnimated.timing(shimmerAnim, { toValue: 0, duration: 1600, useNativeDriver: true }),
       ])
     );
     shimmer.start();
+    RNAnimated.spring(badgeAnim, {
+      toValue: 1,
+      delay: 600,
+      useNativeDriver: true,
+      tension: 60,
+      friction: 8,
+    }).start();
     return () => shimmer.stop();
-  }, [fadeAnim, slideAnim, shimmerAnim]);
+  }, [shimmerAnim, badgeAnim]);
 
-  const glowOpacity = shimmerAnim.interpolate({
+  const initAdapty = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      if (!isMock) {
+        await adapty.activate(ADAPTY_API_KEY, {
+          __ignoreActivationOnFastRefresh: __DEV__,
+        });
+      }
+      const [pw, prof] = await Promise.all([
+        adapty.getPaywall(PLACEMENT_ID),
+        adapty.getProfile().catch(() => null),
+      ]);
+      setProfile(prof ?? null);
+      const pwProducts = await adapty.getPaywallProducts(pw);
+      setProducts(pwProducts);
+      if (pwProducts.length > 0) {
+        const annual = pwProducts.find(
+          (p) =>
+            p.subscription?.subscriptionPeriod?.unit === 'year' ||
+            p.vendorProductId.toLowerCase().includes('annual') ||
+            p.vendorProductId.toLowerCase().includes('yearly')
+        );
+        setSelectedProduct(annual ?? pwProducts[0]);
+      }
+    } catch {
+      setLoadError('Could not load plans. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isMock]);
+
+  useEffect(() => {
+    initAdapty();
+  }, [initAdapty]);
+
+  const isPremium = profile?.accessLevels?.['premium']?.isActive ?? false;
+
+  const handlePurchase = async () => {
+    if (!selectedProduct) {
+      Alert.alert('No Plan Selected', 'Please select a subscription plan to continue.');
+      return;
+    }
+    setIsPurchasing(true);
+    try {
+      const result = await adapty.makePurchase(selectedProduct);
+      switch (result.type) {
+        case 'success':
+          setProfile(result.profile);
+          Alert.alert(
+            '🎉 Welcome to Premium!',
+            'You now have full access to MetroAI Vision, Real-time Alerts, and all premium features!',
+            [{ text: 'Explore Premium', onPress: () => router.back() }]
+          );
+          break;
+        case 'user_cancelled':
+          break;
+        case 'pending':
+          Alert.alert('Purchase Pending', 'Your purchase is being processed.', [{ text: 'OK' }]);
+          break;
+      }
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Purchase failed. Please try again.');
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      const prof = await adapty.restorePurchases();
+      setProfile(prof);
+      const hasPremium = prof?.accessLevels?.['premium']?.isActive ?? false;
+      Alert.alert(
+        hasPremium ? '✅ Restored!' : 'Nothing to Restore',
+        hasPremium ? 'Your premium subscription has been restored.' : 'No previous purchases found.'
+      );
+    } catch {
+      Alert.alert('Error', 'Could not restore purchases. Please try again.');
+    }
+  };
+
+  const formatPrice = (product: AdaptyPaywallProduct): string =>
+    product.price?.localizedString ?? 'N/A';
+
+  const formatPeriod = (product: AdaptyPaywallProduct): string => {
+    const period = product.subscription?.subscriptionPeriod;
+    if (!period) return '';
+    const { unit, numberOfUnits } = period;
+    if (unit === 'month' && numberOfUnits === 1) return '/month';
+    if (unit === 'year' && numberOfUnits === 1) return '/year';
+    return `/${numberOfUnits} ${unit}s`;
+  };
+
+  const isAnnualProduct = (product: AdaptyPaywallProduct): boolean =>
+    product.subscription?.subscriptionPeriod?.unit === 'year' ||
+    product.vendorProductId.toLowerCase().includes('annual') ||
+    product.vendorProductId.toLowerCase().includes('yearly');
+
+  const shimmerOpacity = shimmerAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.3, 0.8],
+    outputRange: [0.7, 1],
   });
 
-  return (
-    <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}
-      >
-        {/* Header */}
-        <View style={styles.headerNav}>
-          <Pressable style={styles.closeButton} onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="close" size={24} color={Colors.textOnPrimary} />
+  if (isPremium) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <Pressable onPress={() => router.back()} style={[styles.closeBtn, { margin: Spacing.lg }]}>
+          <Ionicons name="close" size={22} color={Colors.text} />
+        </Pressable>
+        <View style={styles.alreadyPremiumSection}>
+          <Text style={styles.premiumEmoji}>👑</Text>
+          <Text style={styles.alreadyPremiumTitle}>{"You're Premium!"}</Text>
+          <Text style={styles.alreadyPremiumSub}>
+            All features are unlocked. Enjoy the full MetroRide experience.
+          </Text>
+          <Pressable onPress={() => router.back()} style={styles.continueBtn}>
+            <Text style={styles.continueBtnText}>Continue to App</Text>
           </Pressable>
         </View>
+      </View>
+    );
+  }
 
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.closeBtn}>
+          <Ionicons name="close" size={22} color={Colors.text} />
+        </Pressable>
+        <Pressable onPress={handleRestore} style={styles.restoreBtn}>
+          <Text style={styles.restoreBtnText}>Restore Purchases</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Hero */}
-        <Animated.View
-          style={[
-            styles.hero,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-          ]}
-        >
-          <Animated.View style={[styles.diamondGlow, { opacity: glowOpacity }]} />
-          <View style={styles.diamondIcon}>
-            <Ionicons name="diamond" size={40} color={Colors.gold} />
-          </View>
-          <Text style={styles.heroTitle}>MetroRide Premium</Text>
+        <Animated.View entering={FadeInDown.duration(400)} style={styles.heroSection}>
+          <RNAnimated.View
+            style={[
+              styles.premiumBadge,
+              { opacity: shimmerOpacity, transform: [{ scale: badgeAnim }] },
+            ]}
+          >
+            <Ionicons name="diamond" size={16} color={Colors.gold} />
+            <Text style={styles.premiumBadgeText}>MetroRide Premium</Text>
+          </RNAnimated.View>
+          <Text style={styles.heroTitle}>Commute Smarter{'\n'}Every Day</Text>
           <Text style={styles.heroSubtitle}>
-            Unlock the ultimate commuting experience with exclusive features
+            AI-powered transit assistance, real-time alerts, and advanced features.
           </Text>
+          {isMock && (
+            <View style={styles.mockBadge}>
+              <Ionicons name="flask-outline" size={12} color={Colors.amber} />
+              <Text style={styles.mockText}>Demo Mode – Tap Subscribe to simulate purchase</Text>
+            </View>
+          )}
+        </Animated.View>
+
+        {/* Early Bird Banner */}
+        <Animated.View entering={FadeInDown.duration(400).delay(100)}>
+          <View style={styles.earlyBirdBanner}>
+            <Text style={styles.earlyBirdEmoji}>🐦</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.earlyBirdTitle}>Early Bird Offer – 40% Off Annual</Text>
+              <Text style={styles.earlyBirdSub}>Limited time · Billed annually</Text>
+            </View>
+            <View style={styles.earlyBirdDiscount}>
+              <Text style={styles.earlyBirdPct}>-40%</Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Plans */}
+        <Animated.View entering={FadeInDown.duration(400).delay(200)}>
+          <Text style={styles.sectionTitle}>Choose Your Plan</Text>
+          {isLoading ? (
+            <View style={{ gap: Spacing.md, marginBottom: Spacing.xl }}>
+              {[0, 1].map((i) => (
+                <View key={i} style={styles.planSkeleton} />
+              ))}
+            </View>
+          ) : loadError ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{loadError}</Text>
+              <Pressable onPress={initAdapty} style={styles.retryBtn}>
+                <Text style={styles.retryBtnText}>Retry</Text>
+              </Pressable>
+            </View>
+          ) : products.length > 0 ? (
+            <View style={styles.plansContainer}>
+              {products.map((product) => {
+                const annual = isAnnualProduct(product);
+                const isSelected =
+                  selectedProduct?.vendorProductId === product.vendorProductId;
+                return (
+                  <Pressable
+                    key={product.vendorProductId}
+                    onPress={() => setSelectedProduct(product)}
+                    style={[
+                      styles.planCard,
+                      isSelected && styles.planCardSelected,
+                      annual && styles.planCardAnnual,
+                    ]}
+                  >
+                    {annual && (
+                      <View style={styles.bestValueTag}>
+                        <Text style={styles.bestValueText}>BEST VALUE</Text>
+                      </View>
+                    )}
+                    <View style={styles.planRow}>
+                      <View style={[styles.planRadio, isSelected && styles.planRadioActive]}>
+                        {isSelected && <View style={styles.planRadioDot} />}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.planName}>{product.localizedTitle}</Text>
+                        {product.localizedDescription ? (
+                          <Text style={styles.planDesc}>{product.localizedDescription}</Text>
+                        ) : null}
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[styles.planPrice, isSelected && { color: Colors.violet }]}>
+                          {formatPrice(product)}
+                        </Text>
+                        <Text style={styles.planPeriod}>{formatPeriod(product)}</Text>
+                        {annual && <Text style={styles.savingsText}>Save 40%</Text>}
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            /* Fallback mock plans */
+            <View style={styles.plansContainer}>
+              {[
+                { id: 'monthly', name: 'Monthly', price: '₱149', period: '/month', annual: false },
+                { id: 'annual', name: 'Annual', price: '₱899', period: '/year', annual: true },
+              ].map((plan) => (
+                <Pressable
+                  key={plan.id}
+                  style={[
+                    styles.planCard,
+                    plan.annual && styles.planCardAnnual,
+                    plan.annual && styles.planCardSelected,
+                  ]}
+                >
+                  {plan.annual && (
+                    <View style={styles.bestValueTag}>
+                      <Text style={styles.bestValueText}>BEST VALUE</Text>
+                    </View>
+                  )}
+                  <View style={styles.planRow}>
+                    <View style={[styles.planRadio, plan.annual && styles.planRadioActive]}>
+                      {plan.annual && <View style={styles.planRadioDot} />}
+                    </View>
+                    <Text style={styles.planName}>{plan.name}</Text>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={[styles.planPrice, plan.annual && { color: Colors.violet }]}>
+                        {plan.price}
+                      </Text>
+                      <Text style={styles.planPeriod}>{plan.period}</Text>
+                      {plan.annual && <Text style={styles.savingsText}>Save 40%</Text>}
+                    </View>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
         </Animated.View>
 
         {/* Features */}
-        <Animated.View
-          style={[
-            styles.featuresContainer,
-            { opacity: fadeAnim },
-          ]}
-        >
-          {PREMIUM_FEATURES.map((feature, index) => (
-            <View key={index} style={styles.featureRow}>
-              <View style={styles.featureIcon}>
-                <Ionicons name={feature.icon} size={22} color={Colors.gold} />
-              </View>
-              <View style={styles.featureContent}>
-                <Text style={styles.featureTitle}>{feature.title}</Text>
-                <Text style={styles.featureDesc}>{feature.description}</Text>
-              </View>
-            </View>
-          ))}
-        </Animated.View>
-
-        {/* Plan Selection */}
-        <Animated.View
-          style={[
-            styles.plansContainer,
-            { opacity: fadeAnim },
-          ]}
-        >
-          <Text style={styles.plansTitle}>Choose Your Plan</Text>
-          <View style={styles.plans}>
-            {PLANS.map((plan) => (
-              <Pressable
-                key={plan.id}
-                style={[
-                  styles.planCard,
-                  selectedPlan === plan.id && styles.planCardSelected,
-                  plan.popular && styles.planCardPopular,
-                ]}
-                onPress={() => setSelectedPlan(plan.id)}
-              >
-                {plan.popular && (
-                  <View style={styles.popularBadge}>
-                    <Text style={styles.popularBadgeText}>BEST VALUE</Text>
-                  </View>
-                )}
-                <View style={styles.planRadio}>
-                  <View
-                    style={[
-                      styles.planRadioOuter,
-                      selectedPlan === plan.id && styles.planRadioOuterSelected,
-                    ]}
-                  >
-                    {selectedPlan === plan.id && <View style={styles.planRadioInner} />}
-                  </View>
+        <Animated.View entering={FadeInDown.duration(400).delay(300)}>
+          <Text style={styles.sectionTitle}>{"What's Included"}</Text>
+          <View style={styles.featuresCard}>
+            {FEATURES.map((feat, idx) => (
+              <View key={feat.title} style={[styles.featureRow, idx > 0 && styles.featureRowDivider]}>
+                <View style={[styles.featureIconWrapper, { backgroundColor: feat.color + '18' }]}>
+                  <Ionicons name={feat.icon} size={20} color={feat.color} />
                 </View>
-                <View style={styles.planInfo}>
-                  <Text style={styles.planName}>{plan.name}</Text>
-                  <View style={styles.planPriceRow}>
-                    <Text style={styles.planPrice}>{plan.price}</Text>
-                    <Text style={styles.planPeriod}>{plan.period}</Text>
-                  </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.featureTitle}>{feat.title}</Text>
+                  <Text style={styles.featureDesc}>{feat.description}</Text>
                 </View>
-                {plan.savings && (
-                  <View style={styles.savingsBadge}>
-                    <Text style={styles.savingsText}>{plan.savings}</Text>
+                {feat.isPremium ? (
+                  <View style={styles.premiumTag}>
+                    <Ionicons name="diamond" size={9} color={Colors.violet} />
+                    <Text style={styles.premiumTagText}>Premium</Text>
                   </View>
+                ) : (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
                 )}
-              </Pressable>
+              </View>
             ))}
           </View>
         </Animated.View>
 
         {/* CTA */}
-        <Animated.View
-          style={[styles.ctaContainer, { opacity: fadeAnim }]}
-        >
+        <Animated.View entering={FadeInUp.duration(400).delay(200)}>
           <Pressable
-            style={({ pressed }) => [styles.ctaButton, pressed && styles.ctaButtonPressed]}
-            onPress={() => {
-              // Premium subscription would be handled here
-              router.back();
-            }}
+            onPress={handlePurchase}
+            disabled={isPurchasing || isLoading}
+            style={[styles.ctaButton, (isPurchasing || isLoading) && styles.ctaButtonDisabled]}
           >
-            <Ionicons name="diamond" size={20} color={Colors.textOnPrimary} />
-            <Text style={styles.ctaText}>Start Free Trial</Text>
+            <RNAnimated.View
+              style={{
+                opacity: shimmerOpacity,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+              }}
+            >
+              <Ionicons
+                name={isPurchasing ? 'hourglass-outline' : 'diamond-outline'}
+                size={20}
+                color="#FFF"
+              />
+              <Text style={styles.ctaButtonText}>
+                {isPurchasing ? 'Processing…' : isLoading ? 'Loading Plans…' : 'Start Premium Now'}
+              </Text>
+            </RNAnimated.View>
           </Pressable>
-          <Text style={styles.ctaSubtext}>
-            7-day free trial • Cancel anytime • No commitment
+          <Text style={styles.legalText}>
+            Auto-renews unless cancelled. Cancel anytime in App Store / Play Store.{'\n'}
+            By subscribing you agree to our Terms & Privacy Policy.
           </Text>
+          <View style={{ height: insets.bottom + 20 }} />
         </Animated.View>
-
-        {/* Trust indicators */}
-        <View style={styles.trustRow}>
-          <View style={styles.trustItem}>
-            <Ionicons name="shield-checkmark-outline" size={16} color={Colors.textTertiary} />
-            <Text style={styles.trustText}>Secure Payment</Text>
-          </View>
-          <View style={styles.trustDot} />
-          <View style={styles.trustItem}>
-            <Ionicons name="refresh-outline" size={16} color={Colors.textTertiary} />
-            <Text style={styles.trustText}>Cancel Anytime</Text>
-          </View>
-          <View style={styles.trustDot} />
-          <View style={styles.trustItem}>
-            <Ionicons name="lock-closed-outline" size={16} color={Colors.textTertiary} />
-            <Text style={styles.trustText}>Privacy First</Text>
-          </View>
-        </View>
-
-        <Pressable onPress={() => router.back()} style={styles.restoreLink}>
-          <Text style={styles.restoreLinkText}>Restore Purchase</Text>
-        </Pressable>
-
-        <View style={{ height: insets.bottom + 20 }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0A1628',
-  },
-  scrollContent: {
-    paddingBottom: Spacing.xxxl,
-  },
-  headerNav: {
+  container: { flex: 1, backgroundColor: Colors.background },
+  header: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
   },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  closeBtn: {
+    padding: Spacing.sm,
+    backgroundColor: Colors.borderLight,
+    borderRadius: BorderRadius.full,
   },
-  hero: {
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xxxl,
-    marginBottom: Spacing.xxxl,
-  },
-  diamondGlow: {
-    position: 'absolute',
-    top: -20,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: Colors.gold,
-  },
-  diamondIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(244, 180, 0, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
-    borderWidth: 2,
-    borderColor: 'rgba(244, 180, 0, 0.3)',
-  },
-  heroTitle: {
-    fontSize: FontSize.display,
-    fontWeight: FontWeight.heavy,
-    color: Colors.textOnPrimary,
-    textAlign: 'center',
-    letterSpacing: -1,
-    marginBottom: Spacing.sm,
-  },
-  heroSubtitle: {
-    fontSize: FontSize.lg,
-    color: 'rgba(255,255,255,0.6)',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  featuresContainer: {
-    paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.xxxl,
-  },
-  featureRow: {
+  restoreBtn: { padding: Spacing.sm },
+  restoreBtnText: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: FontWeight.medium },
+  scrollContent: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xxxl },
+  heroSection: { alignItems: 'center', marginBottom: Spacing.xl },
+  premiumBadge: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.lg,
-    marginBottom: Spacing.xl,
-  },
-  featureIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(244, 180, 0, 0.1)',
-    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(244, 180, 0, 0.2)',
-  },
-  featureContent: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: FontSize.lg,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textOnPrimary,
-    marginBottom: 4,
-  },
-  featureDesc: {
-    fontSize: FontSize.sm,
-    color: 'rgba(255,255,255,0.5)',
-    lineHeight: 20,
-  },
-  plansContainer: {
-    paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.xl,
-  },
-  plansTitle: {
-    fontSize: FontSize.xl,
-    fontWeight: FontWeight.bold,
-    color: Colors.textOnPrimary,
+    gap: 6,
+    backgroundColor: Colors.premium + '15',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
     marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.premium + '30',
+  },
+  premiumBadgeText: { fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.premium, letterSpacing: 0.5 },
+  heroTitle: {
+    fontSize: FontSize.xxxl,
+    fontWeight: FontWeight.heavy,
+    color: Colors.text,
     textAlign: 'center',
+    lineHeight: 38,
+    marginBottom: Spacing.md,
   },
-  plans: {
-    gap: Spacing.md,
-  },
-  planCard: {
+  heroSubtitle: { fontSize: FontSize.md, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  mockBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    gap: 4,
+    backgroundColor: Colors.amberLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.amber + '40',
+  },
+  mockText: { fontSize: FontSize.xs, color: Colors.amberDark, fontWeight: FontWeight.medium },
+  earlyBirdBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.amberLight,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.amber + '50',
+  },
+  earlyBirdEmoji: { fontSize: 24 },
+  earlyBirdTitle: { fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.amberDark },
+  earlyBirdSub: { fontSize: FontSize.xs, color: Colors.amber },
+  earlyBirdDiscount: {
+    backgroundColor: Colors.amber,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  earlyBirdPct: { fontSize: FontSize.sm, fontWeight: FontWeight.heavy, color: '#FFF' },
+  sectionTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.text, marginBottom: Spacing.md },
+  planSkeleton: { height: 80, backgroundColor: Colors.shimmer, borderRadius: BorderRadius.lg },
+  errorBox: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  errorText: { color: Colors.error, fontSize: FontSize.sm, textAlign: 'center' },
+  retryBtn: { backgroundColor: Colors.error, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm },
+  retryBtnText: { color: '#FFF', fontWeight: FontWeight.semibold },
+  plansContainer: { gap: Spacing.md, marginBottom: Spacing.xl },
+  planCard: {
+    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.1)',
-    gap: Spacing.md,
+    borderColor: Colors.borderLight,
+    position: 'relative',
+    overflow: 'hidden',
+    ...Shadow.sm,
   },
-  planCardSelected: {
-    borderColor: Colors.gold,
-    backgroundColor: 'rgba(244, 180, 0, 0.08)',
-  },
-  planCardPopular: {
-    overflow: 'visible',
-  },
-  popularBadge: {
+  planCardSelected: { borderColor: Colors.violet, backgroundColor: Colors.violetLight },
+  planCardAnnual: { borderColor: Colors.amber },
+  bestValueTag: {
     position: 'absolute',
-    top: -10,
-    right: Spacing.lg,
-    backgroundColor: Colors.gold,
-    paddingHorizontal: Spacing.md,
+    top: 0,
+    right: 0,
+    backgroundColor: Colors.amber,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderBottomLeftRadius: BorderRadius.sm,
+  },
+  bestValueText: { fontSize: 9, fontWeight: FontWeight.heavy, color: '#FFF', letterSpacing: 0.5 },
+  planRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  planRadio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: Colors.border, justifyContent: 'center', alignItems: 'center' },
+  planRadioActive: { borderColor: Colors.violet },
+  planRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.violet },
+  planName: { fontSize: FontSize.md, fontWeight: FontWeight.bold, color: Colors.text, flex: 1 },
+  planDesc: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  planPrice: { fontSize: FontSize.xl, fontWeight: FontWeight.heavy, color: Colors.text },
+  planPeriod: { fontSize: FontSize.xs, color: Colors.textTertiary },
+  savingsText: { fontSize: FontSize.xs, fontWeight: FontWeight.bold, color: Colors.success, marginTop: 2 },
+  featuresCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
+    ...Shadow.sm,
+    marginBottom: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg },
+  featureRowDivider: { borderTopWidth: 1, borderTopColor: Colors.borderLight },
+  featureIconWrapper: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  featureTitle: { fontSize: FontSize.sm, fontWeight: FontWeight.semibold, color: Colors.text },
+  featureDesc: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 1 },
+  premiumTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Colors.violetLight,
+    paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: BorderRadius.full,
   },
-  popularBadgeText: {
-    fontSize: FontSize.xs,
-    fontWeight: FontWeight.bold,
-    color: '#1A1A1A',
-  },
-  planRadio: {
-    padding: 2,
-  },
-  planRadioOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  planRadioOuterSelected: {
-    borderColor: Colors.gold,
-  },
-  planRadioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Colors.gold,
-  },
-  planInfo: {
-    flex: 1,
-  },
-  planName: {
-    fontSize: FontSize.md,
-    fontWeight: FontWeight.medium,
-    color: 'rgba(255,255,255,0.7)',
-    marginBottom: 2,
-  },
-  planPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  planPrice: {
-    fontSize: FontSize.xxl,
-    fontWeight: FontWeight.heavy,
-    color: Colors.textOnPrimary,
-  },
-  planPeriod: {
-    fontSize: FontSize.sm,
-    color: 'rgba(255,255,255,0.4)',
-  },
-  savingsBadge: {
-    backgroundColor: 'rgba(52, 168, 83, 0.2)',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-  },
-  savingsText: {
-    fontSize: FontSize.xs,
-    fontWeight: FontWeight.bold,
-    color: Colors.success,
-  },
-  ctaContainer: {
-    paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.xl,
-    alignItems: 'center',
-  },
+  premiumTagText: { fontSize: FontSize.xs, color: Colors.violet, fontWeight: FontWeight.semibold },
   ctaButton: {
-    flexDirection: 'row',
+    backgroundColor: Colors.violet,
+    borderRadius: BorderRadius.xl,
+    paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.gold,
-    width: '100%',
-    paddingVertical: Spacing.lg + 2,
-    borderRadius: BorderRadius.lg,
-    ...Shadow.lg,
+    ...Shadow.md,
+    marginBottom: Spacing.lg,
   },
-  ctaButtonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  ctaText: {
-    fontSize: FontSize.xl,
-    fontWeight: FontWeight.bold,
-    color: '#1A1A1A',
-  },
-  ctaSubtext: {
-    fontSize: FontSize.sm,
-    color: 'rgba(255,255,255,0.4)',
-    marginTop: Spacing.md,
-    textAlign: 'center',
-  },
-  trustRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.xl,
-    gap: Spacing.sm,
-  },
-  trustItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  trustText: {
-    fontSize: FontSize.xs,
-    color: 'rgba(255,255,255,0.3)',
-  },
-  trustDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  restoreLink: {
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
-  },
-  restoreLinkText: {
-    fontSize: FontSize.sm,
-    color: 'rgba(255,255,255,0.4)',
-    textDecorationLine: 'underline',
-  },
+  ctaButtonDisabled: { backgroundColor: Colors.border },
+  ctaButtonText: { fontSize: FontSize.lg, fontWeight: FontWeight.heavy, color: '#FFF' },
+  legalText: { fontSize: FontSize.xs, color: Colors.textTertiary, textAlign: 'center', lineHeight: 16 },
+  // Already premium
+  alreadyPremiumSection: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.xxxl },
+  premiumEmoji: { fontSize: 64, marginBottom: Spacing.xl },
+  alreadyPremiumTitle: { fontSize: FontSize.xxxl, fontWeight: FontWeight.heavy, color: Colors.text, marginBottom: Spacing.md },
+  alreadyPremiumSub: { fontSize: FontSize.md, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: Spacing.xxxl },
+  continueBtn: { backgroundColor: Colors.violet, borderRadius: BorderRadius.xl, paddingVertical: 16, paddingHorizontal: Spacing.xxxl },
+  continueBtnText: { fontSize: FontSize.md, fontWeight: FontWeight.bold, color: '#FFF' },
 });

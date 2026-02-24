@@ -32,6 +32,17 @@ export const Colors = {
   premium: '#1A237E',
   premiumGradientStart: '#1A73E8',
   premiumGradientEnd: '#0D47A1',
+  // Phase 2: AI & Community accent colors
+  violet: '#8B5CF6',
+  violetLight: '#EDE9FE',
+  violetDark: '#6D28D9',
+  amber: '#F59E0B',
+  amberLight: '#FEF3C7',
+  amberDark: '#D97706',
+  // Glassmorphism
+  glass: 'rgba(255, 255, 255, 0.18)',
+  glassBorder: 'rgba(255, 255, 255, 0.3)',
+  glassDark: 'rgba(0, 0, 0, 0.2)',
 };
 
 export const Spacing = {

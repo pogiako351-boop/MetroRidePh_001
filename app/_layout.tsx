@@ -21,24 +21,15 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="station/[id]"
-          options={{
-            headerShown: false,
-            animation: 'slide_from_right',
-          }}
+          options={{ headerShown: false, animation: 'slide_from_right' }}
         />
         <Stack.Screen
           name="fare-calculator"
-          options={{
-            headerShown: false,
-            animation: 'slide_from_bottom',
-          }}
+          options={{ headerShown: false, animation: 'slide_from_bottom' }}
         />
         <Stack.Screen
           name="route-planner"
-          options={{
-            headerShown: false,
-            animation: 'slide_from_bottom',
-          }}
+          options={{ headerShown: false, animation: 'slide_from_bottom' }}
         />
         <Stack.Screen
           name="premium"
@@ -46,6 +37,27 @@ export default function RootLayout() {
             headerShown: false,
             animation: 'slide_from_bottom',
             presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="metro-ai"
+          options={{
+            headerShown: false,
+            animation: 'slide_from_bottom',
+          }}
+        />
+        <Stack.Screen
+          name="transit-map"
+          options={{
+            headerShown: false,
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="reminders"
+          options={{
+            headerShown: false,
+            animation: 'slide_from_bottom',
           }}
         />
       </Stack>
