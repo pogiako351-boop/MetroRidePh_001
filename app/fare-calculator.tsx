@@ -39,6 +39,8 @@ import {
   hapticSuccess,
   hapticSelection,
 } from '@/utils/haptics';
+import LiveDataBadge from '@/components/ui/LiveDataBadge';
+import { useTransitDataSync } from '@/utils/transitDataSync';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -776,6 +778,9 @@ export default function FareCalculatorScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
+  // Background cloud data sync — non-blocking, offline-first
+  const { isLiveData, lastSync } = useTransitDataSync();
+
   const [fromStation, setFromStation] = useState<Station | null>(null);
   const [toStation, setToStation] = useState<Station | null>(null);
   const [routes, setRoutes] = useState<RouteResult[]>([]);
@@ -859,22 +864,26 @@ export default function FareCalculatorScreen() {
         </Pressable>
         <View style={styles.headerTitleRow}>
           <Text style={styles.headerTitle}>Fare Calculator</Text>
-          {/* 2026 Precision badge — dynamically colored by active line */}
-          <View
-            style={[
-              styles.precisionBadge,
-              { backgroundColor: accentBrand.soft },
-            ]}
-          >
+          <View style={styles.headerBadgesRow}>
+            {/* 2026 Precision badge — dynamically colored by active line */}
             <View
               style={[
-                styles.precisionDot,
-                { backgroundColor: accentBrand.primary },
+                styles.precisionBadge,
+                { backgroundColor: accentBrand.soft },
               ]}
-            />
-            <Text style={[styles.precisionBadgeText, { color: accentBrand.softText }]}>
-              2026 Precision · {LINE_ICONS[primaryLine]}
-            </Text>
+            >
+              <View
+                style={[
+                  styles.precisionDot,
+                  { backgroundColor: accentBrand.primary },
+                ]}
+              />
+              <Text style={[styles.precisionBadgeText, { color: accentBrand.softText }]}>
+                2026 Precision · {LINE_ICONS[primaryLine]}
+              </Text>
+            </View>
+            {/* Live Data badge — shown when synced with Supabase cloud */}
+            <LiveDataBadge visible={isLiveData} lastSync={lastSync} compact />
           </View>
         </View>
         <View style={styles.navButton} />
@@ -1106,6 +1115,13 @@ const styles = StyleSheet.create({
   headerTitleRow: {
     alignItems: 'center',
     gap: 4,
+  },
+  headerBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: FontSize.xl,

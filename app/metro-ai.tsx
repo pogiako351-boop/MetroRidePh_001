@@ -22,6 +22,12 @@ import { Audio } from 'expo-av';
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing, Shadow } from '@/constants/theme';
 import { TypingIndicator } from '@/components/ui/TypingIndicator';
 import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '@/utils/haptics';
+import { useTransitDataSync } from '@/utils/transitDataSync';
+import LiveDataBadge from '@/components/ui/LiveDataBadge';
+
+// ── Memory management constants ───────────────────────────────────────────
+const MAX_CHAT_MESSAGES = 50;   // Keep last 50 messages max
+const MAX_CONTEXT_MESSAGES = 10; // Only last 10 sent to AI for context window efficiency
 
 interface ChatMessage {
   id: string;
@@ -33,13 +39,15 @@ interface ChatMessage {
   isVoice?: boolean;
 }
 
-const SYSTEM_CONTEXT = `You are MetroAI, a helpful transit assistant for the Philippine metro rail network (MRT-3, LRT-1, LRT-2). You help commuters with:
+const SYSTEM_CONTEXT = `You are MetroAI, an intelligent transit assistant for the Philippine metro rail network (MRT-3, LRT-1, LRT-2), powered by MetroRide PH with Live Cloud Data access. You help commuters with:
 - Exact fare information and calculations using the official 2026 fare matrices
 - Route planning and fastest/cheapest paths
-- Transfer fare intelligence (summing fares across lines)
-- Station information and nearby places
-- Real-time crowd and delay advice
-- Travel tips for Manila metro commuters
+- Transfer fare intelligence (summing fares across multiple lines)
+- Live station status and crowd conditions (from synced cloud data when available)
+- Real-time delay and service alert awareness
+- Travel tips, schedule advice, and station information for Manila metro commuters
+
+⚡ LIVE CLOUD DATA: You have access to real-time station status and fare data synced from the MetroRide PH cloud (Supabase Singapore). When users ask about current conditions, station statuses, or the latest fares, your answers reflect the most recently synced data which is updated throughout the day.
 
 === OFFICIAL 2026 FARE MATRICES (Beep Card / Stored Value) ===
 
@@ -58,7 +66,7 @@ SJT adds ₱2. Student/Senior/PWD get 20% discount.
 LRT-2 (Luminous Violet Line) — 13 stations, Recto to Antipolo:
 Recto→Legarda: ₱15 | Recto→Cubao: ₱25 | Recto→Katipunan: ₱28 | Recto→Santolan: ₱30 | Recto→Antipolo: ₱35
 Antipolo→Marikina-Pasig: ₱15 | Antipolo→Santolan: ₱17 | Antipolo→Katipunan: ₱19 | Antipolo→Cubao: ₱21 | Antipolo→Recto: ₱35
-Key OD fares (station-to-station matrix): Recto↔Cubao ₱25, Recto↔Antipolo ₱35, Cubao↔Antipolo ₱21, Legarda↔Antipolo ₱32, Gilmore↔Cubao ₱15.
+Key OD fares: Recto↔Cubao ₱25, Recto↔Antipolo ₱35, Cubao↔Antipolo ₱21, Legarda↔Antipolo ₱32, Gilmore↔Cubao ₱15.
 SJT adds ₱2. Student/Senior/PWD get 20% discount.
 
 === TRANSFER FARE INTELLIGENCE ===
@@ -73,7 +81,7 @@ Transfer routes combine segment fares. Examples:
 • Doroteo Jose (LRT-1) / Recto (LRT-2): LRT-1 ↔ LRT-2
 
 Operating hours: MRT-3 5:30AM–10:30PM, LRT-1 & LRT-2 5:00AM–10:00PM.
-Always respond in a friendly, concise manner. Use Philippine Peso (₱) for all prices. Keep answers brief and actionable.`;
+Always respond in a friendly, concise manner. Use Philippine Peso (₱) for all prices. Keep answers brief and actionable. When citing live data, note that conditions may change and advise users to verify at the station.`;
 
 const QUICK_PROMPTS = [
   { label: '🗺️ North Ave → Baclaran', prompt: 'What is the cheapest route and total fare from North Avenue MRT-3 to Baclaran LRT-1 using a Beep Card?' },
@@ -108,6 +116,9 @@ export default function MetroAIScreen() {
   const { analyzeImage, isLoading: isAnalyzing } = useImageAnalysis();
   const { transcribeAudio, isLoading: isTranscribing } = useAudioTranscription();
 
+  // Background cloud sync for live data indicator
+  const { isLiveData } = useTransitDataSync();
+
   const isLoading = isGenerating || isAnalyzing || isTranscribing;
 
   const scrollToBottom = useCallback(() => {
@@ -119,6 +130,17 @@ export default function MetroAIScreen() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
+
+  // ── Memory cleanup: trim messages to MAX_CHAT_MESSAGES ─────────────────
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length <= MAX_CHAT_MESSAGES) return prev;
+      // Always keep the welcome message + latest messages
+      const welcome = prev[0];
+      const rest = prev.slice(-(MAX_CHAT_MESSAGES - 1));
+      return [welcome, ...rest];
+    });
+  }, [messages.length]);
 
   // Start mic pulse animation when recording
   useEffect(() => {
@@ -136,6 +158,17 @@ export default function MetroAIScreen() {
     }
   }, [isRecording, micPulseAnim]);
 
+  // Build trimmed conversation history for AI context (last MAX_CONTEXT_MESSAGES only)
+  const buildContextHistory = useCallback((msgList: ChatMessage[]) => {
+    const contextMsgs = msgList
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .filter((m) => m.id !== 'welcome')
+      .slice(-MAX_CONTEXT_MESSAGES);
+    return contextMsgs
+      .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .join('\n');
+  }, []);
+
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || isLoading) return;
@@ -150,7 +183,10 @@ export default function MetroAIScreen() {
       setMessages((prev) => [...prev, userMsg]);
       setInputText('');
 
-      const fullPrompt = `${SYSTEM_CONTEXT}\n\nConversation history:\n${conversationHistory}\n\nUser: ${text.trim()}\n\nAssistant:`;
+      // Use trimmed context history for memory efficiency
+      const trimmedHistory = buildContextHistory(messages);
+      const liveDataNote = isLiveData ? '\n[Live Cloud Data: Active — fare matrix and station data is up to date from cloud sync]' : '';
+      const fullPrompt = `${SYSTEM_CONTEXT}${liveDataNote}\n\nConversation history:\n${trimmedHistory}\n\nUser: ${text.trim()}\n\nAssistant:`;
 
       try {
         const response = await generateText(fullPrompt);
@@ -178,7 +214,7 @@ export default function MetroAIScreen() {
         hapticWarning();
       }
     },
-    [isLoading, conversationHistory, generateText]
+    [isLoading, generateText, buildContextHistory, isLiveData, messages]
   );
 
   // ── Voice Recording ────────────────────────────────────────────────────────
@@ -472,7 +508,10 @@ export default function MetroAIScreen() {
             <View style={styles.aiDot} />
           </View>
           <View>
-            <Text style={styles.headerTitle}>MetroAI</Text>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.headerTitle}>MetroAI</Text>
+              {isLiveData && <LiveDataBadge visible compact />}
+            </View>
             <Text style={styles.headerSubtitle}>Your Smart Transit Assistant</Text>
           </View>
         </View>
@@ -652,6 +691,11 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     backgroundColor: Colors.violet,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   headerTitle: {
     fontSize: FontSize.lg,

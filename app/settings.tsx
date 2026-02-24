@@ -349,11 +349,42 @@ export default function SettingsScreen() {
           ))}
         </Animated.View>
 
+        {/* Legal & About */}
+        <Animated.View entering={FadeInDown.duration(500).delay(450)} style={styles.section}>
+          <View style={[styles.sectionHeader, { marginBottom: Spacing.md }]}>
+            <View style={[styles.sectionIcon, { backgroundColor: 'rgba(26,115,232,0.1)' }]}>
+              <Ionicons name="information-circle" size={18} color={Colors.primary} />
+            </View>
+            <Text style={styles.sectionTitle}>About & Legal</Text>
+          </View>
+
+          {[
+            { icon: 'information-circle', label: 'About MetroRide PH', desc: 'Version info, credits, official sources', route: '/about', color: Colors.primary, bg: Colors.primarySoft },
+            { icon: 'document-text', label: 'Privacy Policy', desc: 'How we handle your data', route: '/privacy-policy', color: '#34A853', bg: '#E8F5E9' },
+            { icon: 'pulse', label: 'Connectivity Diagnostic', desc: 'Verify Supabase and AI reachability', route: '/diagnostics', color: '#8B5CF6', bg: Colors.violetLight },
+          ].map((item) => (
+            <Pressable
+              key={item.label}
+              onPress={() => { hapticLight(); router.push(item.route as '/about'); }}
+              style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
+            >
+              <View style={[styles.linkIcon, { backgroundColor: item.bg }]}>
+                <Ionicons name={item.icon as 'information-circle'} size={18} color={item.color} />
+              </View>
+              <View style={styles.linkInfo}>
+                <Text style={styles.linkLabel}>{item.label}</Text>
+                <Text style={styles.linkDesc}>{item.desc}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+            </Pressable>
+          ))}
+        </Animated.View>
+
         {/* App Info */}
         <Animated.View entering={FadeInDown.duration(500).delay(500)} style={styles.appInfo}>
           <Text style={styles.appName}>MetroRide PH</Text>
-          <Text style={styles.appVersion}>Version 3.0 • Phase 3 Elite</Text>
-          <Text style={styles.appCopyright}>© 2024 MetroRide PH. All rights reserved.</Text>
+          <Text style={styles.appVersion}>Version 3.0 • Phase 6 Production</Text>
+          <Text style={styles.appCopyright}>© 2026 MetroRide PH. All rights reserved.</Text>
         </Animated.View>
       </ScrollView>
     </View>

@@ -5,23 +5,34 @@ import { View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/theme';
 import { syncOfflineData } from '@/utils/storage';
+import FirstLaunchModal, { checkFirstLaunchAccepted } from '@/components/ui/FirstLaunchModal';
 
 const ONBOARDING_DONE_KEY = '@metroride_onboarded';
 
 export default function RootLayout() {
   const [hasOnboarded, setHasOnboarded] = useState<boolean | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null);
 
   useEffect(() => {
     syncOfflineData();
-    AsyncStorage.getItem(ONBOARDING_DONE_KEY).then((val) => {
-      setHasOnboarded(!!val);
+
+    Promise.all([
+      AsyncStorage.getItem(ONBOARDING_DONE_KEY),
+      checkFirstLaunchAccepted(),
+    ]).then(([onboarded, accepted]) => {
+      setHasOnboarded(!!onboarded);
+      setTermsAccepted(accepted);
     });
   }, []);
 
-  // Wait for AsyncStorage check
-  if (hasOnboarded === null) {
+  // Wait for storage checks
+  if (hasOnboarded === null || termsAccepted === null) {
     return <View style={{ flex: 1, backgroundColor: Colors.surface }} />;
   }
+
+  const handleTermsAccepted = () => {
+    setTermsAccepted(true);
+  };
 
   return (
     <>
@@ -81,9 +92,26 @@ export default function RootLayout() {
           name="beep-card"
           options={{ headerShown: false, animation: 'slide_from_right' }}
         />
+        <Stack.Screen
+          name="about"
+          options={{ headerShown: false, animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="privacy-policy"
+          options={{ headerShown: false, animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="diagnostics"
+          options={{ headerShown: false, animation: 'slide_from_right' }}
+        />
       </Stack>
 
       {!hasOnboarded && <Redirect href="/onboarding" />}
+
+      {/* First-launch terms & privacy acceptance modal */}
+      {hasOnboarded && !termsAccepted && (
+        <FirstLaunchModal visible onAccept={handleTermsAccepted} />
+      )}
 
       <StatusBar style="dark" />
     </>
