@@ -10,15 +10,18 @@ import {
   Platform,
   Image,
   Alert,
+  Animated as RNAnimated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInUp, FadeInLeft } from 'react-native-reanimated';
-import { useTextGeneration, useImageAnalysis } from '@fastshot/ai';
+import { useTextGeneration, useImageAnalysis, useAudioTranscription } from '@fastshot/ai';
 import * as ImagePicker from 'expo-image-picker';
+import { Audio } from 'expo-av';
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing, Shadow } from '@/constants/theme';
 import { TypingIndicator } from '@/components/ui/TypingIndicator';
+import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '@/utils/haptics';
 
 interface ChatMessage {
   id: string;
@@ -27,6 +30,7 @@ interface ChatMessage {
   imageUri?: string;
   timestamp: Date;
   isVisionAnalysis?: boolean;
+  isVoice?: boolean;
 }
 
 const SYSTEM_CONTEXT = `You are MetroAI, a helpful transit assistant for the Philippine metro rail network (MRT-3, LRT-1, LRT-2). You help commuters with:
@@ -56,20 +60,25 @@ export default function MetroAIScreen() {
       id: 'welcome',
       role: 'assistant',
       content:
-        "Hi! I'm MetroAI 🤖\n\nI can help you with fares, routes, and real-time commute advice for MRT-3, LRT-1, and LRT-2.\n\nYou can also upload a photo of a station monitor or crowd for me to analyze!",
+        "Hi! I'm MetroAI 🤖\n\nI can help you with fares, routes, and real-time commute advice for MRT-3, LRT-1, and LRT-2.\n\nYou can also speak your question using the 🎤 microphone button!",
       timestamp: new Date(),
     },
   ]);
   const [inputText, setInputText] = useState('');
   const [conversationHistory, setConversationHistory] = useState<string>('');
   const [isPremium] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingInstance, setRecordingInstance] = useState<Audio.Recording | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
+  const micPulseAnim = useRef(new RNAnimated.Value(1)).current;
+  const micPulseLoop = useRef<RNAnimated.CompositeAnimation | null>(null);
 
   const { generateText, isLoading: isGenerating } = useTextGeneration();
   const { analyzeImage, isLoading: isAnalyzing } = useImageAnalysis();
+  const { transcribeAudio, isLoading: isTranscribing } = useAudioTranscription();
 
-  const isLoading = isGenerating || isAnalyzing;
+  const isLoading = isGenerating || isAnalyzing || isTranscribing;
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -81,9 +90,26 @@ export default function MetroAIScreen() {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
+  // Start mic pulse animation when recording
+  useEffect(() => {
+    if (isRecording) {
+      micPulseLoop.current = RNAnimated.loop(
+        RNAnimated.sequence([
+          RNAnimated.timing(micPulseAnim, { toValue: 1.25, duration: 600, useNativeDriver: true }),
+          RNAnimated.timing(micPulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+        ])
+      );
+      micPulseLoop.current.start();
+    } else {
+      micPulseLoop.current?.stop();
+      micPulseAnim.setValue(1);
+    }
+  }, [isRecording, micPulseAnim]);
+
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || isLoading) return;
+      hapticLight();
 
       const userMsg: ChatMessage = {
         id: Date.now().toString(),
@@ -110,20 +136,135 @@ export default function MetroAIScreen() {
         setConversationHistory(
           (prev) => `${prev}\nUser: ${text.trim()}\nAssistant: ${aiResponse}`
         );
+        hapticSuccess();
       } catch {
         const errMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content:
-            'Sorry, I encountered an error. Please check your connection and try again.',
+          content: 'Sorry, I encountered an error. Please check your connection and try again.',
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errMsg]);
+        hapticWarning();
       }
     },
     [isLoading, conversationHistory, generateText]
   );
 
+  // ── Voice Recording ────────────────────────────────────────────────────────
+  const startRecording = useCallback(async () => {
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Microphone Permission',
+          'Please allow microphone access to use voice queries.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const recording = new Audio.Recording();
+      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await recording.startAsync();
+      setRecordingInstance(recording);
+      setIsRecording(true);
+      hapticMedium();
+    } catch {
+      Alert.alert('Recording Error', 'Could not start recording. Please try again.');
+    }
+  }, []);
+
+  const stopRecording = useCallback(async () => {
+    if (!recordingInstance) return;
+    hapticMedium();
+
+    try {
+      setIsRecording(false);
+      await recordingInstance.stopAndUnloadAsync();
+      const uri = recordingInstance.getURI();
+      setRecordingInstance(null);
+
+      if (!uri) {
+        Alert.alert('Recording Error', 'No audio captured. Please try again.');
+        return;
+      }
+
+      // Add a "transcribing" indicator message
+      const voiceMsg: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: '🎤 Transcribing your voice...',
+        timestamp: new Date(),
+        isVoice: true,
+      };
+      setMessages((prev) => [...prev, voiceMsg]);
+
+      // Transcribe
+      const transcript = await transcribeAudio({ audioUri: uri, language: 'en' });
+
+      if (!transcript || !transcript.trim()) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === voiceMsg.id
+              ? { ...m, content: '🎤 Could not understand audio. Please try again.' }
+              : m
+          )
+        );
+        return;
+      }
+
+      // Update voice message to show transcribed text
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === voiceMsg.id
+            ? { ...m, content: `🎤 "${transcript}"` }
+            : m
+        )
+      );
+
+      // Send transcribed text to AI
+      const fullPrompt = `${SYSTEM_CONTEXT}\n\nConversation history:\n${conversationHistory}\n\nUser: ${transcript.trim()}\n\nAssistant:`;
+      const response = await generateText(fullPrompt);
+      const aiResponse = response ?? 'Sorry, I could not respond. Please try again.';
+
+      const assistantMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: aiResponse,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+      setConversationHistory((prev) => `${prev}\nUser: ${transcript}\nAssistant: ${aiResponse}`);
+      hapticSuccess();
+    } catch {
+      setIsRecording(false);
+      setRecordingInstance(null);
+      const errMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Could not transcribe audio. Please try typing your question.',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errMsg]);
+      hapticWarning();
+    }
+  }, [recordingInstance, transcribeAudio, conversationHistory, generateText]);
+
+  const handleMicPress = useCallback(() => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  }, [isRecording, startRecording, stopRecording]);
+
+  // ── Image Upload ───────────────────────────────────────────────────────────
   const handleImageUpload = useCallback(async () => {
     if (!isPremium) {
       Alert.alert(
@@ -139,10 +280,7 @@ export default function MetroAIScreen() {
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(
-        'Permission Required',
-        'Please allow access to your photo library to use Vision Analysis.'
-      );
+      Alert.alert('Permission Required', 'Please allow access to your photo library to use Vision Analysis.');
       return;
     }
 
@@ -210,11 +348,7 @@ export default function MetroAIScreen() {
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 0.7,
-      allowsEditing: true,
-    });
-
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: true });
     if (result.canceled || !result.assets[0]) return;
     const imageUri = result.assets[0].uri;
 
@@ -269,11 +403,7 @@ export default function MetroAIScreen() {
           )}
           <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
             {item.imageUri && (
-              <Image
-                source={{ uri: item.imageUri }}
-                style={styles.messageImage}
-                resizeMode="cover"
-              />
+              <Image source={{ uri: item.imageUri }} style={styles.messageImage} resizeMode="cover" />
             )}
             {item.isVisionAnalysis && (
               <View style={styles.visionBadge}>
@@ -281,20 +411,17 @@ export default function MetroAIScreen() {
                 <Text style={styles.visionBadgeText}>Vision Analysis</Text>
               </View>
             )}
-            <Text
-              style={[
-                styles.messageText,
-                isUser ? styles.userMessageText : styles.aiMessageText,
-              ]}
-            >
+            {item.isVoice && (
+              <View style={styles.voiceBadge}>
+                <Ionicons name="mic" size={12} color={Colors.primary} />
+                <Text style={styles.voiceBadgeText}>Voice Query</Text>
+              </View>
+            )}
+            <Text style={[styles.messageText, isUser ? styles.userMessageText : styles.aiMessageText]}>
               {item.content}
             </Text>
             <Text style={[styles.timestamp, isUser && styles.userTimestamp]}>
-              {item.timestamp.toLocaleTimeString('en-PH', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true,
-              })}
+              {item.timestamp.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true })}
             </Text>
           </View>
         </Animated.View>
@@ -335,13 +462,32 @@ export default function MetroAIScreen() {
           renderItem={({ item }) => (
             <Pressable
               style={styles.quickPromptChip}
-              onPress={() => sendMessage(item.prompt)}
+              onPress={() => { hapticLight(); sendMessage(item.prompt); }}
             >
               <Text style={styles.quickPromptText}>{item.label}</Text>
             </Pressable>
           )}
         />
       </View>
+
+      {/* Recording Banner */}
+      {isRecording && (
+        <Animated.View entering={FadeInUp.duration(200)} style={styles.recordingBanner}>
+          <RNAnimated.View style={[styles.recordingDot, { transform: [{ scale: micPulseAnim }] }]} />
+          <Text style={styles.recordingText}>Recording... Tap mic to stop</Text>
+          <Pressable onPress={stopRecording} style={styles.stopBtn}>
+            <Ionicons name="stop-circle" size={20} color={Colors.error} />
+          </Pressable>
+        </Animated.View>
+      )}
+
+      {/* Transcribing Banner */}
+      {isTranscribing && (
+        <Animated.View entering={FadeInUp.duration(200)} style={styles.transcribingBanner}>
+          <Ionicons name="hourglass-outline" size={16} color={Colors.violet} />
+          <Text style={styles.transcribingText}>Transcribing audio...</Text>
+        </Animated.View>
+      )}
 
       {/* Messages */}
       <KeyboardAvoidingView
@@ -356,11 +502,11 @@ export default function MetroAIScreen() {
           renderItem={renderMessage}
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
-          ListFooterComponent={isLoading ? <TypingIndicator /> : null}
+          ListFooterComponent={(isGenerating || isAnalyzing) ? <TypingIndicator /> : null}
           onContentSizeChange={scrollToBottom}
         />
 
-        {/* Vision feature teaser */}
+        {/* Vision teaser */}
         <View style={styles.visionTeaser}>
           <Ionicons name="eye-outline" size={14} color={Colors.violet} />
           <Text style={styles.visionTeaserText}>
@@ -380,30 +526,53 @@ export default function MetroAIScreen() {
           <Pressable onPress={handleImageUpload} style={styles.inputAction}>
             <Ionicons name="image-outline" size={22} color={Colors.violet} />
           </Pressable>
+
           <View style={styles.textInputWrapper}>
             <TextInput
               ref={inputRef}
               style={styles.textInput}
-              placeholder="Ask about fares, routes, stations..."
-              placeholderTextColor={Colors.textTertiary}
+              placeholder={isRecording ? '🎤 Listening...' : 'Ask about fares, routes, stations...'}
+              placeholderTextColor={isRecording ? Colors.error : Colors.textTertiary}
               value={inputText}
               onChangeText={setInputText}
               multiline
               maxLength={500}
               returnKeyType="send"
               onSubmitEditing={() => sendMessage(inputText)}
+              editable={!isRecording}
             />
           </View>
+
+          {/* Mic Button */}
+          <RNAnimated.View style={{ transform: [{ scale: isRecording ? micPulseAnim : 1 }] }}>
+            <Pressable
+              onPress={handleMicPress}
+              disabled={isTranscribing}
+              style={[
+                styles.micBtn,
+                isRecording && styles.micBtnActive,
+                isTranscribing && styles.micBtnDisabled,
+              ]}
+            >
+              <Ionicons
+                name={isRecording ? 'stop' : 'mic'}
+                size={18}
+                color="#FFF"
+              />
+            </Pressable>
+          </RNAnimated.View>
+
+          {/* Send Button */}
           <Pressable
             onPress={() => sendMessage(inputText)}
-            disabled={!inputText.trim() || isLoading}
+            disabled={!inputText.trim() || isLoading || isRecording}
             style={[
               styles.sendBtn,
-              (!inputText.trim() || isLoading) && styles.sendBtnDisabled,
+              (!inputText.trim() || isLoading || isRecording) && styles.sendBtnDisabled,
             ]}
           >
             <Ionicons
-              name={isLoading ? 'hourglass-outline' : 'send'}
+              name={isGenerating ? 'hourglass-outline' : 'send'}
               size={18}
               color="#FFFFFF"
             />
@@ -485,6 +654,44 @@ const styles = StyleSheet.create({
     color: Colors.violetDark,
     fontWeight: FontWeight.medium,
   },
+  recordingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.error + '30',
+  },
+  recordingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.error,
+  },
+  recordingText: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    color: Colors.error,
+    fontWeight: FontWeight.medium,
+  },
+  stopBtn: {
+    padding: 4,
+  },
+  transcribingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.violetLight,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  transcribingText: {
+    fontSize: FontSize.sm,
+    color: Colors.violet,
+    fontWeight: FontWeight.medium,
+  },
   messagesList: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
@@ -551,6 +758,22 @@ const styles = StyleSheet.create({
   visionBadgeText: {
     fontSize: FontSize.xs,
     color: Colors.violet,
+    fontWeight: FontWeight.semibold,
+  },
+  voiceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.primarySoft,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginBottom: Spacing.sm,
+    alignSelf: 'flex-start',
+  },
+  voiceBadgeText: {
+    fontSize: FontSize.xs,
+    color: Colors.primary,
     fontWeight: FontWeight.semibold,
   },
   messageText: {
@@ -635,6 +858,20 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     color: Colors.text,
     maxHeight: 80,
+  },
+  micBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  micBtnActive: {
+    backgroundColor: Colors.error,
+  },
+  micBtnDisabled: {
+    backgroundColor: Colors.border,
   },
   sendBtn: {
     width: 40,

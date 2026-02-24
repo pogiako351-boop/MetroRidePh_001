@@ -12,9 +12,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInRight, FadeInUp } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius, Shadow } from '@/constants/theme';
-import { searchStations, Station, ALL_STATIONS } from '@/constants/stations';
+import { Station, ALL_STATIONS } from '@/constants/stations';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { LineDot } from '@/components/ui/LineDot';
@@ -35,21 +35,45 @@ import {
   REPORT_CATEGORIES,
 } from '@/utils/communityReports';
 import { getCommuterProfile, CommuterProfile } from '@/utils/commuterPoints';
+import { frecencySearch, recordStationVisit, getRecentStations } from '@/utils/frecency';
+import { hapticLight, hapticMedium, hapticSuccess, hapticDoubleTap } from '@/utils/haptics';
 
 const QUICK_ACTIONS = [
   { id: 'ai', title: 'MetroAI\nAssistant', icon: 'chatbubbles-outline' as const, color: Colors.violet, route: '/metro-ai' },
   { id: 'map', title: 'System\nMap', icon: 'map-outline' as const, color: Colors.primary, route: '/transit-map' },
   { id: 'fare', title: 'Fare\nCalculator', icon: 'calculator-outline' as const, color: '#34A853', route: '/fare-calculator' },
   { id: 'route', title: 'Route\nPlanner', icon: 'navigate-outline' as const, color: '#9C27B0', route: '/route-planner' },
+  { id: 'insights', title: 'My\nInsights', icon: 'stats-chart-outline' as const, color: Colors.amber, route: '/insights' },
+  { id: 'beep', title: 'Beep\nCard', icon: 'card-outline' as const, color: '#059669', route: '/beep-card' },
   { id: 'alerts', title: 'Live\nAlerts', icon: 'notifications-outline' as const, color: '#EA4335', route: '/(tabs)/alerts' },
+  { id: 'settings', title: 'Settings', icon: 'settings-outline' as const, color: Colors.textSecondary, route: '/settings' },
   { id: 'premium', title: 'Go\nPremium', icon: 'diamond-outline' as const, color: Colors.violetDark, route: '/premium' },
 ];
+
+/** Returns a tinted header background based on current hour */
+function getTimeOfDayTint(hour: number): { bg: string; label: string; emoji: string } {
+  if (hour >= 5 && hour < 11) return { bg: '#EBF3FE', label: 'Good Morning', emoji: '🌅' };
+  if (hour >= 11 && hour < 16) return { bg: '#F8F9FA', label: 'Good Afternoon', emoji: '☀️' };
+  if (hour >= 16 && hour < 20) return { bg: '#FEF3C7', label: 'Good Evening', emoji: '🌇' };
+  return { bg: '#E8EEF9', label: 'Good Night', emoji: '🌙' };
+}
+
+/** Contextual proactive tips based on time/conditions */
+function getProactiveTip(hour: number, hasAlerts: boolean): { text: string; icon: string; color: string } | null {
+  if (hasAlerts) return { text: 'Active service alerts on your lines — check for delays before you leave.', icon: 'warning', color: Colors.warning };
+  if (hour >= 7 && hour <= 9) return { text: '🚨 Morning rush hour: Expect heavy crowds. Try boarding 1–2 stations earlier.', icon: 'people', color: Colors.error };
+  if (hour >= 17 && hour <= 19) return { text: '⚠️ Evening rush: MRT-3 southbound typically heavy. Consider LRT-1 if going to Taft.', icon: 'train', color: Colors.amber };
+  if (hour >= 5 && hour <= 6) return { text: '🌅 Early bird advantage: 60% less crowd before 7 AM. Great time to commute!', icon: 'sunny', color: Colors.success };
+  if (hour >= 20) return { text: '🌙 Last trains at 10:00–10:30 PM. Plan ahead to avoid missing the last trip.', icon: 'time', color: Colors.primary };
+  return null;
+}
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Station[]>([]);
+  const [recentStations, setRecentStations] = useState<Station[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [eta, setEta] = useState(getNextTrainETA());
@@ -60,11 +84,17 @@ export default function DashboardScreen() {
   const [communityReports, setCommunityReports] = useState<CommunityReport[]>([]);
   const [showReportModal, setShowReportModal] = useState(false);
   const [fabExpanded, setFabExpanded] = useState(false);
+  const [proactiveDismissed, setProactiveDismissed] = useState(false);
   const alerts = generateMockAlerts();
   const criticalAlerts = alerts.filter((a) => a.severity === 'warning' || a.severity === 'critical');
   const pulseAnim = useRef(new RNAnimated.Value(1)).current;
   const reportPulseAnims = useRef<RNAnimated.Value[]>([]).current;
   const fabOverlayOpacity = useRef(new RNAnimated.Value(0)).current;
+  const trainRefreshAnim = useRef(new RNAnimated.Value(-60)).current;
+
+  const hour = currentTime.getHours();
+  const timeTint = getTimeOfDayTint(hour);
+  const proactiveTip = proactiveDismissed ? null : getProactiveTip(hour, criticalAlerts.length > 0);
 
   // Initialize report pulse anims
   useEffect(() => {
@@ -103,16 +133,18 @@ export default function DashboardScreen() {
   }, [pulseAnim]);
 
   const loadData = useCallback(async () => {
-    const [stations, routes, profile, reports] = await Promise.all([
+    const [stations, routes, profile, reports, recent] = await Promise.all([
       getFavoriteStations(),
       getFavoriteRoutes(),
       getCommuterProfile(),
       getCommunityReports(),
+      getRecentStations(4),
     ]);
     setFavStations(stations);
     setFavRoutes(routes);
     setCommuterProfile(profile);
     setCommunityReports(reports.slice(0, 3));
+    setRecentStations(recent);
   }, []);
 
   useEffect(() => {
@@ -120,23 +152,39 @@ export default function DashboardScreen() {
   }, [loadData]);
 
   const onRefresh = useCallback(async () => {
+    hapticMedium();
     setRefreshing(true);
+    // Train animation across screen
+    trainRefreshAnim.setValue(-60);
+    RNAnimated.timing(trainRefreshAnim, {
+      toValue: 400,
+      duration: 1200,
+      useNativeDriver: true,
+    }).start();
     await loadData();
     setEta(getNextTrainETA());
     setRefreshing(false);
-  }, [loadData]);
+  }, [loadData, trainRefreshAnim]);
 
   useEffect(() => {
     if (searchQuery.trim().length > 0) {
-      setSearchResults(searchStations(searchQuery));
-      setShowSearch(true);
+      frecencySearch(searchQuery).then((results) => {
+        setSearchResults(results);
+        setShowSearch(true);
+      });
     } else {
-      setSearchResults([]);
       setShowSearch(false);
+      // Show recent stations as suggestions when empty
+      if (recentStations.length > 0) {
+        setSearchResults(recentStations);
+      } else {
+        setSearchResults([]);
+      }
     }
-  }, [searchQuery]);
+  }, [searchQuery, recentStations]);
 
   const toggleFab = useCallback(() => {
+    hapticLight();
     const toValue = fabExpanded ? 0 : 1;
     setFabExpanded(!fabExpanded);
     RNAnimated.timing(fabOverlayOpacity, {
@@ -148,6 +196,7 @@ export default function DashboardScreen() {
 
   const handleUpvote = useCallback(
     async (reportId: string) => {
+      hapticSuccess();
       await upvoteReport(reportId);
       setCommunityReports((prev) =>
         prev.map((r) =>
@@ -156,6 +205,33 @@ export default function DashboardScreen() {
       );
     },
     []
+  );
+
+  const handleStationPress = useCallback(
+    (stationId: string) => {
+      hapticLight();
+      recordStationVisit(stationId);
+      setSearchQuery('');
+      router.push(`/station/${stationId}`);
+    },
+    [router]
+  );
+
+  const handleFavPress = useCallback(
+    (stationId: string) => {
+      hapticDoubleTap();
+      recordStationVisit(stationId);
+      router.push(`/station/${stationId}`);
+    },
+    [router]
+  );
+
+  const handleQuickAction = useCallback(
+    (route: string) => {
+      hapticLight();
+      router.push(route as never);
+    },
+    [router]
   );
 
   const formatDate = (date: Date) =>
@@ -177,26 +253,52 @@ export default function DashboardScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Train refresh indicator */}
+      {refreshing && (
+        <RNAnimated.View
+          style={[styles.trainRefreshBar, { transform: [{ translateX: trainRefreshAnim }] }]}
+          pointerEvents="none"
+        >
+          <Text style={styles.trainEmoji}>🚇</Text>
+          <View style={styles.trainTrack} />
+        </RNAnimated.View>
+      )}
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+            title="Refreshing..."
+            titleColor={Colors.textTertiary}
+          />
         }
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header */}
-        <Animated.View entering={FadeInDown.duration(500).delay(100)} style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.appName}>MetroRide PH</Text>
-            <Text style={styles.dateText}>{formatDate(currentTime)}</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
-            <Pressable onPress={() => router.push('/premium')} style={styles.premiumButton}>
-              <Ionicons name="diamond" size={16} color={Colors.gold} />
-            </Pressable>
-          </View>
-        </Animated.View>
+        {/* Time-based tinted header area */}
+        <View style={[styles.headerTint, { backgroundColor: timeTint.bg }]}>
+          {/* Header */}
+          <Animated.View entering={FadeInDown.duration(500).delay(100)} style={styles.header}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.appName}>MetroRide PH</Text>
+              <Text style={styles.dateText}>{timeTint.emoji} {formatDate(currentTime)}</Text>
+            </View>
+            <View style={styles.headerRight}>
+              <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
+              <Pressable
+                onPress={() => { hapticLight(); router.push('/settings'); }}
+                style={styles.settingsButton}
+              >
+                <Ionicons name="settings-outline" size={18} color={Colors.textSecondary} />
+              </Pressable>
+              <Pressable onPress={() => { hapticLight(); router.push('/premium'); }} style={styles.premiumButton}>
+                <Ionicons name="diamond" size={16} color={Colors.gold} />
+              </Pressable>
+            </View>
+          </Animated.View>
+        </View>
 
         {/* Commuter Badge */}
         {commuterProfile && (
@@ -224,20 +326,23 @@ export default function DashboardScreen() {
           </View>
         </Animated.View>
 
-        {/* Search Results */}
-        {showSearch && (
+        {/* Search Results / Recent Stations */}
+        {(showSearch || recentStations.length > 0) && (
           <Animated.View entering={FadeInDown.duration(300)} style={styles.searchResults}>
-            {searchResults.length === 0 ? (
+            {!showSearch && recentStations.length > 0 && (
+              <View style={styles.recentHeader}>
+                <Ionicons name="time-outline" size={13} color={Colors.textTertiary} />
+                <Text style={styles.recentLabel}>Recent Stations</Text>
+              </View>
+            )}
+            {searchResults.length === 0 && showSearch ? (
               <Text style={styles.noResults}>No stations found</Text>
             ) : (
               searchResults.slice(0, 5).map((station) => (
                 <Pressable
                   key={station.id}
                   style={({ pressed }) => [styles.searchResultItem, pressed && styles.pressed]}
-                  onPress={() => {
-                    setSearchQuery('');
-                    router.push(`/station/${station.id}`);
-                  }}
+                  onPress={() => handleStationPress(station.id)}
                 >
                   <LineDot line={station.line} size={10} />
                   <View style={{ flex: 1 }}>
@@ -248,6 +353,21 @@ export default function DashboardScreen() {
                 </Pressable>
               ))
             )}
+          </Animated.View>
+        )}
+
+        {/* Proactive Suggestions Banner */}
+        {proactiveTip && (
+          <Animated.View entering={FadeInUp.duration(400).delay(200)} style={styles.proactiveBanner}>
+            <View style={[styles.proactiveIcon, { backgroundColor: proactiveTip.color + '20' }]}>
+              <Ionicons name={proactiveTip.icon as 'warning'} size={18} color={proactiveTip.color} />
+            </View>
+            <Text style={[styles.proactiveText, { color: proactiveTip.color === Colors.warning ? '#92400E' : proactiveTip.color }]}>
+              {proactiveTip.text}
+            </Text>
+            <Pressable onPress={() => { hapticLight(); setProactiveDismissed(true); }} style={styles.proactiveDismiss}>
+              <Ionicons name="close" size={16} color={Colors.textTertiary} />
+            </Pressable>
           </Animated.View>
         )}
 
@@ -305,7 +425,7 @@ export default function DashboardScreen() {
             <Pressable
               key={action.id}
               style={({ pressed }) => [styles.quickAction, pressed && styles.quickActionPressed]}
-              onPress={() => router.push(action.route as never)}
+              onPress={() => handleQuickAction(action.route)}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: action.color + '18' }]}>
                 <Ionicons name={action.icon} size={24} color={action.color} />
@@ -380,7 +500,7 @@ export default function DashboardScreen() {
                 <Pressable
                   key={fav.stationId}
                   style={({ pressed }) => [styles.favCard, pressed && styles.pressed]}
-                  onPress={() => router.push(`/station/${fav.stationId}`)}
+                  onPress={() => handleFavPress(fav.stationId)}
                 >
                   <View style={styles.favIconContainer}>
                     <Ionicons
@@ -498,12 +618,95 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxxl,
   },
+  // Time-based header tint
+  headerTint: {
+    marginHorizontal: -Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingTop: Spacing.lg,
     marginBottom: Spacing.md,
+  },
+  // Train refresh bar
+  trainRefreshBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 32,
+    zIndex: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primarySoft,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  trainEmoji: {
+    fontSize: 18,
+  },
+  trainTrack: {
+    flex: 1,
+    height: 3,
+    backgroundColor: Colors.primary + '40',
+    borderRadius: 2,
+  },
+  // Proactive Banner
+  proactiveBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadow.sm,
+  },
+  proactiveIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  proactiveText: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    lineHeight: 18,
+    fontWeight: FontWeight.medium,
+  },
+  proactiveDismiss: {
+    padding: 2,
+    flexShrink: 0,
+  },
+  // Recent search labels
+  recentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.background,
+  },
+  recentLabel: {
+    fontSize: FontSize.xs,
+    color: Colors.textTertiary,
+    fontWeight: FontWeight.medium,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  // Settings button
+  settingsButton: {
+    backgroundColor: Colors.background,
+    borderRadius: BorderRadius.full,
+    padding: Spacing.sm,
   },
   appName: {
     fontSize: FontSize.xxxl,
