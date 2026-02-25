@@ -45,7 +45,9 @@ export default function FirstLaunchModal({ visible, onAccept }: FirstLaunchModal
   const handleAccept = async () => {
     if (!checked || loading) return;
     setLoading(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Tactile pulse: heavy impact first, then success notification for a two-stage haptic feel
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await AsyncStorage.setItem(FIRST_LAUNCH_KEY, TERMS_VERSION);
     setLoading(false);
     onAccept();

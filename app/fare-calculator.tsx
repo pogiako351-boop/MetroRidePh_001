@@ -41,6 +41,7 @@ import {
 } from '@/utils/haptics';
 import LiveDataBadge from '@/components/ui/LiveDataBadge';
 import { useTransitDataSync } from '@/utils/transitDataSync';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -790,6 +791,7 @@ export default function FareCalculatorScreen() {
   const [ticketType, setTicketType] = useState<TicketType>('beep');
   const [passengerProfile, setPassengerProfile] = useState<PassengerProfile>('regular');
   const [breakdown, setBreakdown] = useState<FareBreakdown | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
 
   // Derive primary line from current route
   const selectedRoute = routes[selectedRouteIndex];
@@ -823,11 +825,18 @@ export default function FareCalculatorScreen() {
 
   const handleCalculate = useCallback(() => {
     if (!fromStation || !toStation) return;
-    const result = findRoutes(fromStation.id, toStation.id);
-    setRoutes(result);
-    setSelectedRouteIndex(0);
-    setCalculated(true);
+    setIsCalculating(true);
+    setCalculated(false);
+    setBreakdown(null);
     hapticSuccess();
+    // Brief shimmer to give feedback that the 2026 fare matrix is being queried
+    setTimeout(() => {
+      const result = findRoutes(fromStation.id, toStation.id);
+      setRoutes(result);
+      setSelectedRouteIndex(0);
+      setCalculated(true);
+      setIsCalculating(false);
+    }, 320);
   }, [fromStation, toStation]);
 
   const handleSelectRoute = useCallback((idx: number) => {
@@ -969,6 +978,36 @@ export default function FareCalculatorScreen() {
             </Text>
           </Pressable>
         </Animated.View>
+
+        {/* Calculating skeleton shimmer */}
+        {isCalculating && (
+          <Animated.View entering={FadeInUp.duration(300)} style={styles.skeletonReceiptCard}>
+            <View style={styles.skeletonReceiptHeader}>
+              <Skeleton width={120} height={14} borderRadius={6} />
+              <Skeleton width={70} height={20} borderRadius={10} />
+            </View>
+            <View style={styles.skeletonReceiptDash} />
+            <View style={styles.skeletonReceiptStats}>
+              <Skeleton width={70} height={12} borderRadius={4} />
+              <Skeleton width={80} height={12} borderRadius={4} />
+              <Skeleton width={65} height={12} borderRadius={4} />
+            </View>
+            <View style={styles.skeletonReceiptItems}>
+              <View style={styles.skeletonReceiptRow}>
+                <Skeleton width="40%" height={12} borderRadius={4} />
+                <Skeleton width={60} height={12} borderRadius={4} />
+              </View>
+              <View style={styles.skeletonReceiptRow}>
+                <Skeleton width="30%" height={12} borderRadius={4} />
+                <Skeleton width={50} height={12} borderRadius={4} />
+              </View>
+              <View style={[styles.skeletonReceiptRow, { marginTop: 8 }]}>
+                <Skeleton width="20%" height={16} borderRadius={4} />
+                <Skeleton width={90} height={36} borderRadius={8} />
+              </View>
+            </View>
+          </Animated.View>
+        )}
 
         {/* Results */}
         {calculated && routes.length > 0 && selectedRoute && breakdown && (
@@ -1283,5 +1322,42 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     color: Colors.textSecondary,
     textAlign: 'center',
+  },
+  skeletonReceiptCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
+    marginBottom: Spacing.lg,
+    ...Shadow.lg,
+  },
+  skeletonReceiptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md + 2,
+    backgroundColor: Colors.shimmer,
+  },
+  skeletonReceiptDash: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginHorizontal: Spacing.lg,
+  },
+  skeletonReceiptStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  skeletonReceiptItems: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+    gap: Spacing.sm + 2,
+  },
+  skeletonReceiptRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 });

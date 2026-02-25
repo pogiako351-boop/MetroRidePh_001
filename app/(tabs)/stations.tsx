@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -23,6 +23,7 @@ import {
 } from '@/constants/stations';
 import { Badge } from '@/components/ui/Badge';
 import { LineDot } from '@/components/ui/LineDot';
+import { StationCardSkeleton, Skeleton } from '@/components/ui/Skeleton';
 
 type FilterLine = 'all' | LineId;
 
@@ -38,6 +39,13 @@ export default function StationsScreen() {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterLine>('all');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Brief shimmer on first mount — gives the station list a polished load feel
+  useEffect(() => {
+    const t = setTimeout(() => setIsLoading(false), 450);
+    return () => clearTimeout(t);
+  }, []);
 
   const sections = useMemo(() => {
     const allSections: { title: string; line: LineId; data: Station[] }[] = [];
@@ -190,22 +198,46 @@ export default function StationsScreen() {
       </View>
 
       {/* Station List */}
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item.id}
-        renderItem={renderStationCard}
-        renderSectionHeader={renderSectionHeader as any}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        stickySectionHeadersEnabled={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="train-outline" size={48} color={Colors.textTertiary} />
-            <Text style={styles.emptyText}>No stations found</Text>
-            <Text style={styles.emptySubtext}>Try a different search term</Text>
+      {isLoading ? (
+        <View style={styles.listContent}>
+          {/* Skeleton section header */}
+          <View style={[styles.sectionHeader, { marginBottom: 8 }]}>
+            <Skeleton width={10} height={14} borderRadius={5} />
+            <Skeleton width={80} height={16} borderRadius={6} />
+            <View style={{ flex: 1, height: 2, backgroundColor: Colors.shimmer, borderRadius: 1, marginLeft: 8, opacity: 0.5 }} />
           </View>
-        }
-      />
+          <StationCardSkeleton />
+          <StationCardSkeleton />
+          <StationCardSkeleton />
+          <StationCardSkeleton />
+          <View style={[styles.sectionHeader, { marginTop: 16, marginBottom: 8 }]}>
+            <Skeleton width={10} height={14} borderRadius={5} />
+            <Skeleton width={80} height={16} borderRadius={6} />
+            <View style={{ flex: 1, height: 2, backgroundColor: Colors.shimmer, borderRadius: 1, marginLeft: 8, opacity: 0.5 }} />
+          </View>
+          <StationCardSkeleton />
+          <StationCardSkeleton />
+          <StationCardSkeleton />
+          <StationCardSkeleton />
+        </View>
+      ) : (
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item.id}
+          renderItem={renderStationCard}
+          renderSectionHeader={renderSectionHeader as any}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          stickySectionHeadersEnabled={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="train-outline" size={48} color={Colors.textTertiary} />
+              <Text style={styles.emptyText}>No stations found</Text>
+              <Text style={styles.emptySubtext}>Try a different search term</Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }

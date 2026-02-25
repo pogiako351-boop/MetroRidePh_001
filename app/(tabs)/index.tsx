@@ -39,6 +39,7 @@ import { frecencySearch, recordStationVisit, getRecentStations } from '@/utils/f
 import { hapticLight, hapticMedium, hapticSuccess, hapticDoubleTap } from '@/utils/haptics';
 import { useTransitDataSync } from '@/utils/transitDataSync';
 import LiveDataBadge from '@/components/ui/LiveDataBadge';
+import { Skeleton, StationCardSkeleton } from '@/components/ui/Skeleton';
 
 const QUICK_ACTIONS = [
   { id: 'ai', title: 'MetroAI\nAssistant', icon: 'chatbubbles-outline' as const, color: Colors.violet, route: '/metro-ai' },
@@ -88,6 +89,7 @@ export default function DashboardScreen() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [fabExpanded, setFabExpanded] = useState(false);
   const [proactiveDismissed, setProactiveDismissed] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const alerts = generateMockAlerts();
   const criticalAlerts = alerts.filter((a) => a.severity === 'warning' || a.severity === 'critical');
   const pulseAnim = useRef(new RNAnimated.Value(1)).current;
@@ -148,6 +150,7 @@ export default function DashboardScreen() {
     setCommuterProfile(profile);
     setCommunityReports(reports.slice(0, 3));
     setRecentStations(recent);
+    setIsLoadingData(false);
   }, []);
 
   useEffect(() => {
@@ -481,22 +484,47 @@ export default function DashboardScreen() {
         </Animated.View>
 
         {/* Community Reports */}
-        {communityReports.length > 0 && (
+        {(isLoadingData || communityReports.length > 0) && (
           <>
             <Animated.View entering={FadeInDown.duration(500).delay(700)} style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
-                <Text style={styles.sectionTitle}>Community Reports</Text>
-                <View style={styles.livePill}>
-                  <View style={styles.livePillDot} />
-                  <Text style={styles.livePillText}>LIVE</Text>
-                </View>
+                {isLoadingData ? (
+                  <Skeleton width={155} height={20} borderRadius={6} />
+                ) : (
+                  <>
+                    <Text style={styles.sectionTitle}>Community Reports</Text>
+                    <View style={styles.livePill}>
+                      <View style={styles.livePillDot} />
+                      <Text style={styles.livePillText}>LIVE</Text>
+                    </View>
+                  </>
+                )}
               </View>
-              <Pressable onPress={() => setShowReportModal(true)}>
-                <Text style={styles.seeAll}>+ Add</Text>
-              </Pressable>
+              {!isLoadingData && (
+                <Pressable onPress={() => setShowReportModal(true)}>
+                  <Text style={styles.seeAll}>+ Add</Text>
+                </Pressable>
+              )}
             </Animated.View>
             <Animated.View entering={FadeInDown.duration(500).delay(800)}>
-              {communityReports.map((report, idx) => {
+              {isLoadingData ? (
+                <>
+                  <View style={[styles.reportCard, { opacity: 1 }]}>
+                    <Skeleton width={40} height={40} borderRadius={12} />
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <Skeleton width="55%" height={13} borderRadius={5} />
+                      <Skeleton width="80%" height={11} borderRadius={4} />
+                    </View>
+                  </View>
+                  <View style={[styles.reportCard, { opacity: 1 }]}>
+                    <Skeleton width={40} height={40} borderRadius={12} />
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <Skeleton width="45%" height={13} borderRadius={5} />
+                      <Skeleton width="70%" height={11} borderRadius={4} />
+                    </View>
+                  </View>
+                </>
+              ) : communityReports.map((report, idx) => {
                 const cat = REPORT_CATEGORIES[report.category];
                 return (
                   <View key={report.id} style={styles.reportCard}>
@@ -567,28 +595,40 @@ export default function DashboardScreen() {
 
         {/* Line Status Summary */}
         <Animated.View entering={FadeInDown.duration(500).delay(1000)} style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Line Status</Text>
+          {isLoadingData ? (
+            <Skeleton width={110} height={20} borderRadius={6} />
+          ) : (
+            <Text style={styles.sectionTitle}>Line Status</Text>
+          )}
           <View style={styles.liveDataRow}>
             <LiveDataBadge visible={isLiveData} compact />
           </View>
         </Animated.View>
         <Animated.View entering={FadeInDown.duration(500).delay(1100)}>
-          {([
-            { line: 'LRT-1', sub: 'Roosevelt – Baclaran · Yellow Line', color: '#F5C500' },
-            { line: 'MRT-3', sub: 'North Ave – Taft Ave · Blue Line', color: '#1143A8' },
-            { line: 'LRT-2', sub: 'Recto – Antipolo · Violet Line', color: '#9C27B0' },
-          ] as const).map(({ line, sub, color }) => (
-            <Card key={line} style={styles.lineStatusCard} onPress={() => router.push('/(tabs)/stations')}>
-              <View style={styles.lineStatusRow}>
-                <LineDot line={line} size={14} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.lineStatusName}>{line}</Text>
-                  <Text style={[styles.lineStatusSub, { color }]}>{sub}</Text>
+          {isLoadingData ? (
+            <>
+              <StationCardSkeleton />
+              <StationCardSkeleton />
+              <StationCardSkeleton />
+            </>
+          ) : (
+            ([
+              { line: 'LRT-1', sub: 'Roosevelt – Baclaran · Yellow Line', color: '#F5C500' },
+              { line: 'MRT-3', sub: 'North Ave – Taft Ave · Blue Line', color: '#1143A8' },
+              { line: 'LRT-2', sub: 'Recto – Antipolo · Violet Line', color: '#9C27B0' },
+            ] as const).map(({ line, sub, color }) => (
+              <Card key={line} style={styles.lineStatusCard} onPress={() => router.push('/(tabs)/stations')}>
+                <View style={styles.lineStatusRow}>
+                  <LineDot line={line} size={14} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.lineStatusName}>{line}</Text>
+                    <Text style={[styles.lineStatusSub, { color }]}>{sub}</Text>
+                  </View>
+                  <Badge text="Normal" variant="success" small />
                 </View>
-                <Badge text="Normal" variant="success" small />
-              </View>
-            </Card>
-          ))}
+              </Card>
+            ))
+          )}
         </Animated.View>
 
         <View style={{ height: 100 }} />

@@ -50,15 +50,15 @@ const OFFICIAL_LINKS: LinkItem[] = [
   {
     icon: 'subway',
     label: 'LRT-2 Official',
-    sublabel: 'Light Rail Transit Authority',
-    url: 'https://lrt2.lrta.gov.ph',
+    sublabel: 'Light Rail Transit Authority (LRTA)',
+    url: 'https://www.lrta.gov.ph',
     color: '#9C27B0',
   },
   {
     icon: 'navigate',
     label: 'MRT-3 Official',
-    sublabel: 'Metro Rail Transit Corporation',
-    url: 'https://www.mrtc.com.ph',
+    sublabel: 'Metro Rail Transit Corp. (MRTC)',
+    url: 'https://www.mrt.com.ph',
     color: '#1143A8',
   },
   {
@@ -70,8 +70,8 @@ const OFFICIAL_LINKS: LinkItem[] = [
   },
   {
     icon: 'business',
-    label: 'DOTC / DOTr',
-    sublabel: 'Dept. of Transportation',
+    label: 'DOTr (Dept. of Transportation)',
+    sublabel: 'Official Philippine Transit Authority',
     url: 'https://dotr.gov.ph',
     color: '#34A853',
   },
