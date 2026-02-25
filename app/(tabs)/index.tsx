@@ -37,6 +37,8 @@ import {
 import { getCommuterProfile, CommuterProfile } from '@/utils/commuterPoints';
 import { frecencySearch, recordStationVisit, getRecentStations } from '@/utils/frecency';
 import { hapticLight, hapticMedium, hapticSuccess, hapticDoubleTap } from '@/utils/haptics';
+import { useTransitDataSync } from '@/utils/transitDataSync';
+import LiveDataBadge from '@/components/ui/LiveDataBadge';
 
 const QUICK_ACTIONS = [
   { id: 'ai', title: 'MetroAI\nAssistant', icon: 'chatbubbles-outline' as const, color: Colors.violet, route: '/metro-ai' },
@@ -71,6 +73,7 @@ function getProactiveTip(hour: number, hasAlerts: boolean): { text: string; icon
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { isLiveData, lastSync } = useTransitDataSync();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Station[]>([]);
   const [recentStations, setRecentStations] = useState<Station[]>([]);
@@ -282,7 +285,11 @@ export default function DashboardScreen() {
           {/* Header */}
           <Animated.View entering={FadeInDown.duration(500).delay(100)} style={styles.header}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.appName}>MetroRide PH</Text>
+              <View style={styles.appNameRow}>
+                <Text style={styles.appName}>MetroRide PH</Text>
+                <LiveDataBadge visible={isLiveData} lastSync={lastSync} compact />
+              </View>
+              <Text style={styles.railTagline}>Elite Rail Engine · LRT-1 · MRT-3 · LRT-2</Text>
               <Text style={styles.dateText}>{timeTint.emoji} {formatDate(currentTime)}</Text>
             </View>
             <View style={styles.headerRight}>
@@ -416,6 +423,44 @@ export default function DashboardScreen() {
           </RNAnimated.View>
         </Animated.View>
 
+        {/* Rail Engine Feature Strip */}
+        <Animated.View entering={FadeInDown.duration(500).delay(450)} style={styles.railEngineStrip}>
+          <View style={styles.railEngineItem}>
+            <View style={[styles.railEngineIcon, { backgroundColor: 'rgba(245,197,0,0.15)' }]}>
+              <Ionicons name="flash" size={14} color="#F5C500" />
+            </View>
+            <Text style={styles.railEngineLabel}>2026 Rail{'\n'}Fare Engine</Text>
+          </View>
+          <View style={styles.railEngineDiv} />
+          <View style={styles.railEngineItem}>
+            <View style={[styles.railEngineIcon, { backgroundColor: 'rgba(52,168,83,0.15)' }]}>
+              <Ionicons name="cloud-done" size={14} color="#34A853" />
+            </View>
+            <Text style={styles.railEngineLabel}>Live Cloud{'\n'}Sync</Text>
+          </View>
+          <View style={styles.railEngineDiv} />
+          <View style={styles.railEngineItem}>
+            <View style={[styles.railEngineIcon, { backgroundColor: 'rgba(245,197,0,0.15)' }]}>
+              <View style={[styles.railLineDot, { backgroundColor: '#F5C500' }]} />
+            </View>
+            <Text style={styles.railEngineLabel}>LRT-1{'\n'}Yellow</Text>
+          </View>
+          <View style={styles.railEngineDiv} />
+          <View style={styles.railEngineItem}>
+            <View style={[styles.railEngineIcon, { backgroundColor: 'rgba(17,67,168,0.15)' }]}>
+              <View style={[styles.railLineDot, { backgroundColor: '#1143A8' }]} />
+            </View>
+            <Text style={styles.railEngineLabel}>MRT-3{'\n'}Blue</Text>
+          </View>
+          <View style={styles.railEngineDiv} />
+          <View style={styles.railEngineItem}>
+            <View style={[styles.railEngineIcon, { backgroundColor: 'rgba(156,39,176,0.15)' }]}>
+              <View style={[styles.railLineDot, { backgroundColor: '#9C27B0' }]} />
+            </View>
+            <Text style={styles.railEngineLabel}>LRT-2{'\n'}Violet</Text>
+          </View>
+        </Animated.View>
+
         {/* Quick Actions */}
         <Animated.View entering={FadeInDown.duration(500).delay(500)} style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -523,14 +568,23 @@ export default function DashboardScreen() {
         {/* Line Status Summary */}
         <Animated.View entering={FadeInDown.duration(500).delay(1000)} style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Line Status</Text>
+          <View style={styles.liveDataRow}>
+            <LiveDataBadge visible={isLiveData} compact />
+          </View>
         </Animated.View>
         <Animated.View entering={FadeInDown.duration(500).delay(1100)}>
-          {(['MRT-3', 'LRT-1', 'LRT-2'] as const).map((line) => (
+          {([
+            { line: 'LRT-1', sub: 'Roosevelt – Baclaran · Yellow Line', color: '#F5C500' },
+            { line: 'MRT-3', sub: 'North Ave – Taft Ave · Blue Line', color: '#1143A8' },
+            { line: 'LRT-2', sub: 'Recto – Antipolo · Violet Line', color: '#9C27B0' },
+          ] as const).map(({ line, sub, color }) => (
             <Card key={line} style={styles.lineStatusCard} onPress={() => router.push('/(tabs)/stations')}>
               <View style={styles.lineStatusRow}>
                 <LineDot line={line} size={14} />
-                <Text style={styles.lineStatusName}>{line}</Text>
-                <View style={{ flex: 1 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.lineStatusName}>{line}</Text>
+                  <Text style={[styles.lineStatusSub, { color }]}>{sub}</Text>
+                </View>
                 <Badge text="Normal" variant="success" small />
               </View>
             </Card>
@@ -1014,6 +1068,64 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.textSecondary,
   },
+  appNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  railTagline: {
+    fontSize: FontSize.xs,
+    color: Colors.primary,
+    fontWeight: FontWeight.semibold,
+    marginTop: 1,
+    letterSpacing: 0.2,
+  },
+  liveDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  // Rail Engine Feature Strip
+  railEngineStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    marginBottom: Spacing.lg,
+    ...Shadow.sm,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  railEngineItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  railEngineIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  railLineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  railEngineLabel: {
+    fontSize: 9,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  railEngineDiv: {
+    width: 1,
+    height: 28,
+    backgroundColor: Colors.borderLight,
+  },
   lineStatusCard: { marginBottom: Spacing.sm },
   lineStatusRow: {
     flexDirection: 'row',
@@ -1024,6 +1136,11 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     fontWeight: FontWeight.semibold,
     color: Colors.text,
+  },
+  lineStatusSub: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.medium,
+    marginTop: 1,
   },
   // FAB
   fabContainer: {

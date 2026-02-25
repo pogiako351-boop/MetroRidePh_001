@@ -18,7 +18,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '3.0.0';
 const BUILD_DATE = '2026';
-const DATA_VERSION = '2026 Official Fare Matrix';
+const DATA_VERSION = '2026 Official Rail Fare Matrix';
+const APP_TAGLINE = 'Elite Rail-Only Transit Engine for Metro Manila';
+const PLAY_STORE_DESC =
+  'Precision fare calculations, route planning, and AI-powered commuter assistance exclusively for LRT-1, LRT-2, and MRT-3.';
 
 interface InfoRow {
   icon: keyof typeof Ionicons.glyphMap;
@@ -125,7 +128,7 @@ export default function AboutScreen() {
             <View style={styles.liveRing} />
           </View>
           <Text style={styles.appName}>MetroRide PH</Text>
-          <Text style={styles.appSlogan}>{"Metro Manila's Official Transit Companion"}</Text>
+          <Text style={styles.appSlogan}>{APP_TAGLINE}</Text>
 
           <View style={styles.badgeRow}>
             <View style={styles.versionBadge}>
@@ -134,11 +137,27 @@ export default function AboutScreen() {
             </View>
             <View style={[styles.versionBadge, { borderColor: 'rgba(52,168,83,0.3)', backgroundColor: 'rgba(52,168,83,0.08)' }]}>
               <Ionicons name="checkmark-circle" size={11} color="#34A853" />
-              <Text style={[styles.versionText, { color: '#34A853' }]}>Production</Text>
+              <Text style={[styles.versionText, { color: '#34A853' }]}>Rail-Only</Text>
             </View>
             <View style={[styles.versionBadge, { borderColor: 'rgba(245,197,0,0.3)', backgroundColor: 'rgba(245,197,0,0.08)' }]}>
-              <Ionicons name="calendar" size={11} color="#F5C500" />
-              <Text style={[styles.versionText, { color: '#F5C500' }]}>{BUILD_DATE}</Text>
+              <Ionicons name="flash" size={11} color="#F5C500" />
+              <Text style={[styles.versionText, { color: '#F5C500' }]}>2026 Engine</Text>
+            </View>
+          </View>
+
+          {/* Core Value Propositions */}
+          <View style={styles.valueRow}>
+            <View style={[styles.valuePill, { borderColor: 'rgba(245,197,0,0.4)', backgroundColor: 'rgba(245,197,0,0.10)' }]}>
+              <View style={[styles.valueDot, { backgroundColor: '#F5C500' }]} />
+              <Text style={[styles.valuePillText, { color: '#B8900A' }]}>LRT-1 Yellow Line</Text>
+            </View>
+            <View style={[styles.valuePill, { borderColor: 'rgba(17,67,168,0.4)', backgroundColor: 'rgba(17,67,168,0.10)' }]}>
+              <View style={[styles.valueDot, { backgroundColor: '#1143A8' }]} />
+              <Text style={[styles.valuePillText, { color: '#1143A8' }]}>MRT-3 Blue Line</Text>
+            </View>
+            <View style={[styles.valuePill, { borderColor: 'rgba(156,39,176,0.4)', backgroundColor: 'rgba(156,39,176,0.10)' }]}>
+              <View style={[styles.valueDot, { backgroundColor: '#9C27B0' }]} />
+              <Text style={[styles.valuePillText, { color: '#9C27B0' }]}>LRT-2 Violet Line</Text>
             </View>
           </View>
         </View>
@@ -147,10 +166,12 @@ export default function AboutScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>App Information</Text>
           {([
-            { icon: 'information-circle', label: 'Version', value: `${APP_VERSION} (Phase 6)` },
+            { icon: 'information-circle', label: 'Version', value: `${APP_VERSION} (Rail Engine)` },
             { icon: 'server', label: 'Data Version', value: DATA_VERSION },
+            { icon: 'cloud', label: 'Live Cloud Sync', value: 'Supabase SG · Real-Time' },
             { icon: 'globe', label: 'Backend Region', value: 'Supabase Singapore (ap-southeast-1)' },
-            { icon: 'shield-checkmark', label: 'Compliance', value: 'Google Play Store Ready' },
+            { icon: 'shield-checkmark', label: 'Store Status', value: 'Google Play Store Ready' },
+            { icon: 'train', label: 'Rail Coverage', value: 'LRT-1 · MRT-3 · LRT-2 (46 stations)' },
           ] as InfoRow[]).map((item) => (
             <View key={item.label} style={styles.infoRow}>
               <View style={styles.infoIcon}>
@@ -162,14 +183,43 @@ export default function AboutScreen() {
           ))}
         </View>
 
+        {/* Core Features */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Core Value Propositions</Text>
+          <View style={[styles.featureRow, { borderLeftColor: '#F5C500' }]}>
+            <Ionicons name="flash" size={18} color="#F5C500" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.featureTitle}>2026 Rail Fare Engine</Text>
+              <Text style={styles.featureDesc}>Official LRTA & MRTC fare matrices for LRT-1, MRT-3, and LRT-2 with station-to-station precision. Includes SJT surcharge and 20% statutory discounts.</Text>
+            </View>
+          </View>
+          <View style={[styles.featureRow, { borderLeftColor: '#34A853' }]}>
+            <Ionicons name="cloud-done" size={18} color="#34A853" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.featureTitle}>Live Cloud Sync</Text>
+              <Text style={styles.featureDesc}>Real-time station status, crowd reports, and service alerts synced from our Supabase cloud. Offline-first architecture with smart fallback.</Text>
+            </View>
+          </View>
+          <View style={[styles.featureRow, { borderLeftColor: '#9C27B0' }]}>
+            <Ionicons name="chatbubbles" size={18} color="#9C27B0" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.featureTitle}>MetroAI Rail Specialist</Text>
+              <Text style={styles.featureDesc}>AI assistant exclusively trained on Metro Manila rail operations — fares, routes, schedules, and transfer logic for the three rail lines.</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Description */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>About MetroRide PH</Text>
           <Text style={styles.bodyText}>
-            MetroRide PH is a comprehensive transit assistant built for Metro Manila commuters. It provides real-time fare calculations, route planning, crowd monitoring, and AI-powered commuter assistance for the MRT-3, LRT-1, and LRT-2 lines.
+            {PLAY_STORE_DESC}
           </Text>
           <Text style={[styles.bodyText, { marginTop: 10 }]}>
-            Fare data is sourced from official LRTA and MRTC publications and reflects the 2026 official fare matrix. The app operates independently from and is not affiliated with any government transit agency.
+            {"MetroRide PH is a high-precision, rail-only transit companion dedicated exclusively to Metro Manila's three urban rail lines: LRT-1 (Vibrant Yellow Line), MRT-3 (Deep Blue Line), and LRT-2 (Luminous Violet Line). It is NOT a general-purpose transit or navigation app — it is an elite specialist tool for Metro Manila rail commuters."}
+          </Text>
+          <Text style={[styles.bodyText, { marginTop: 10 }]}>
+            Fare data is sourced directly from official LRTA and MRTC publications and reflects the 2026 official rail fare matrices. The app operates independently and is not affiliated with any government transit agency.
           </Text>
         </View>
 
@@ -229,11 +279,32 @@ export default function AboutScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Google Play Store Description Metadata */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Google Play Store Description</Text>
+          <Text style={styles.bodyText}>
+            {"MetroRide PH is the elite, rail-only transit companion for Metro Manila's urban rail network. Exclusively covering LRT-1 (Light Rail Manila), MRT-3 (Metro Rail Transit), and LRT-2 (Light Rail Transit Authority), it delivers:"}
+          </Text>
+          {[
+            '✦ 2026 Rail Fare Engine — precision station-to-station fare matrices for all three rail lines',
+            '✦ Live Cloud Sync — real-time station status and crowd data via Supabase cloud infrastructure',
+            '✦ MetroAI Rail Specialist — voice-enabled AI assistant for fares, routes, and rail schedules',
+            '✦ Transfer Intelligence — smart multi-line route planning with fare breakdowns per segment',
+            '✦ Offline-First — full fare calculations available without internet connection',
+            '✦ Beep Card & SJT support with statutory discounts for students, seniors, and PWDs',
+          ].map((item) => (
+            <Text key={item} style={[styles.bodyText, { marginTop: 6 }]}>{item}</Text>
+          ))}
+          <Text style={[styles.bodyText, { marginTop: 10, fontStyle: 'italic', color: 'rgba(255,255,255,0.4)' }]}>
+            This app covers ONLY rail transit (LRT-1, LRT-2, MRT-3). Bus, jeepney, and other modes are not included.
+          </Text>
+        </View>
+
         {/* Disclaimer */}
         <View style={styles.disclaimer}>
           <Ionicons name="information-circle-outline" size={14} color="rgba(255,255,255,0.3)" />
           <Text style={styles.disclaimerText}>
-            MetroRide PH is an independent app and is NOT affiliated with LRTA, MRTC, DOTr, or any Philippine government agency. All fare data is for informational purposes only.
+            MetroRide PH is an independent, rail-only app and is NOT affiliated with LRTA, MRTC, DOTr, or any Philippine government agency. Coverage is exclusively limited to LRT-1, MRT-3, and LRT-2. All fare data is for informational purposes only.
           </Text>
         </View>
 
@@ -383,4 +454,50 @@ const styles = StyleSheet.create({
   disclaimerText: { flex: 1, fontSize: 11, color: 'rgba(255,255,255,0.3)', lineHeight: 16 },
 
   copyright: { fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center', marginBottom: 8 },
+
+  valueRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 12,
+  },
+  valuePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  valueDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  valuePillText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    borderLeftWidth: 3,
+    paddingLeft: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
+  },
+  featureTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 3,
+  },
+  featureDesc: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    lineHeight: 17,
+  },
 });

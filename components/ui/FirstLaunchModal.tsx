@@ -62,12 +62,27 @@ export default function FirstLaunchModal({ visible, onAccept }: FirstLaunchModal
             </View>
             <View>
               <Text style={styles.appName}>MetroRide PH</Text>
-              <Text style={styles.tagline}>Official Transit Companion</Text>
+              <Text style={styles.tagline}>Elite Rail-Only Transit Engine</Text>
+            </View>
+          </View>
+          {/* Rail line badge strip */}
+          <View style={styles.lineBadgeRow}>
+            <View style={[styles.lineBadge, { backgroundColor: 'rgba(245,197,0,0.15)', borderColor: 'rgba(245,197,0,0.35)' }]}>
+              <View style={[styles.lineDot, { backgroundColor: '#F5C500' }]} />
+              <Text style={[styles.lineBadgeText, { color: '#B8900A' }]}>LRT-1</Text>
+            </View>
+            <View style={[styles.lineBadge, { backgroundColor: 'rgba(17,67,168,0.15)', borderColor: 'rgba(17,67,168,0.35)' }]}>
+              <View style={[styles.lineDot, { backgroundColor: '#1143A8' }]} />
+              <Text style={[styles.lineBadgeText, { color: '#4A7FD4' }]}>MRT-3</Text>
+            </View>
+            <View style={[styles.lineBadge, { backgroundColor: 'rgba(156,39,176,0.15)', borderColor: 'rgba(156,39,176,0.35)' }]}>
+              <View style={[styles.lineDot, { backgroundColor: '#9C27B0' }]} />
+              <Text style={[styles.lineBadgeText, { color: '#CE93D8' }]}>LRT-2</Text>
             </View>
           </View>
           <Text style={styles.title}>Welcome Aboard</Text>
           <Text style={styles.subtitle}>
-            Before you start your commute journey, please review and accept our Terms of Service and Privacy Policy.
+            {"MetroRide PH is a "}<Text style={styles.subtitleBold}>rail-only</Text>{" precision transit app for Metro Manila's LRT-1, MRT-3, and LRT-2 lines. Before you begin, please review our Terms of Service and Privacy Policy."}
           </Text>
         </View>
 
@@ -84,23 +99,31 @@ export default function FirstLaunchModal({ visible, onAccept }: FirstLaunchModal
           >
             <Text style={styles.sectionTitle}>Terms of Service</Text>
             <Text style={styles.body}>
-              {"MetroRide PH is an informational transit assistant for Metro Manila's rail network (MRT-3, LRT-1, LRT-2)."}
+              {'MetroRide PH is a high-precision, rail-only transit engine exclusively dedicated to Metro Manila\'s three urban rail lines: LRT-1 (Light Rail Manila Corporation), MRT-3 (Metro Rail Transit Corporation), and LRT-2 (Light Rail Transit Authority). This app does NOT cover buses, jeepneys, or any other transport mode.'}
               {'\n\n'}
-              <Text style={styles.bold}>1. Informational Use Only</Text>
+              <Text style={styles.bold}>1. Rail-Only Scope & Informational Use</Text>
               {'\n'}
-              Fare data, schedules, and transit information are based on officially published rates and are provided for guidance purposes only. Always verify current fares and schedules with LRTA, DOTC, or Beep Card official channels.
+              All fare data, schedules, and transit information are sourced from official LRTA and MRTC publications (2026 Official Rail Fare Matrices) and provided for guidance purposes only. MetroRide PH covers only LRT-1, MRT-3, and LRT-2. Always verify current fares with official rail operator channels.
               {'\n\n'}
-              <Text style={styles.bold}>2. AI Assistant Disclaimer</Text>
+              <Text style={styles.bold}>2. 2026 Rail Fare Engine</Text>
               {'\n'}
-              MetroAI is powered by large language models. Responses are AI-generated and may not reflect real-time conditions. The AI does not guarantee accuracy for safety-critical decisions.
+              Fare calculations use the official 2026 station-to-station fare matrices for LRT-1 (20 stations), MRT-3 (13 stations), and LRT-2 (13 stations). Includes SJT surcharges and statutory 20% discounts for students, seniors, and PWDs.
               {'\n\n'}
-              <Text style={styles.bold}>3. Community Reports</Text>
+              <Text style={styles.bold}>3. Live Cloud Sync</Text>
               {'\n'}
-              User-submitted crowd and delay reports are community contributions and not verified by MetroRide PH or any transit authority.
+              Real-time data is synced from the MetroRide PH Supabase cloud (Singapore region). Live crowd reports and station statuses are community-sourced and may not reflect official transit authority data. The app functions fully offline when cloud sync is unavailable.
               {'\n\n'}
-              <Text style={styles.bold}>4. No Liability</Text>
+              <Text style={styles.bold}>4. MetroAI Rail Specialist Disclaimer</Text>
               {'\n'}
-              MetroRide PH is not affiliated with LRTA, MRT-3, or any Philippine government transit agency. We are not liable for missed trains, fare disputes, or decisions made based on app data.
+              MetroAI is powered by large language models and is strictly scoped to LRT-1, MRT-3, and LRT-2 operations. It does not provide information on buses, jeepneys, or other transport. AI responses are for informational use only and may not reflect real-time conditions.
+              {'\n\n'}
+              <Text style={styles.bold}>5. Community Reports</Text>
+              {'\n'}
+              User-submitted crowd and delay reports are community contributions and are not verified by MetroRide PH or any transit authority.
+              {'\n\n'}
+              <Text style={styles.bold}>6. No Liability</Text>
+              {'\n'}
+              MetroRide PH is not affiliated with LRTA, MRTC, or any Philippine government transit agency. We are not liable for missed trains, fare disputes, or decisions made based on app data.
               {'\n\n'}
               <Text style={styles.sectionTitle}>Privacy Policy Summary</Text>
               {'\n'}
@@ -345,5 +368,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: 'rgba(255,255,255,0.25)',
     textAlign: 'center',
+  },
+
+  lineBadgeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  lineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  lineDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  lineBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  subtitleBold: {
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.9)',
   },
 });

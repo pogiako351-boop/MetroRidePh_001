@@ -359,7 +359,7 @@ export default function SettingsScreen() {
           </View>
 
           {[
-            { icon: 'information-circle', label: 'About MetroRide PH', desc: 'Version info, credits, official sources', route: '/about', color: Colors.primary, bg: Colors.primarySoft },
+            { icon: 'information-circle', label: 'About MetroRide PH', desc: 'Rail-only engine · 2026 fare data · official sources', route: '/about', color: Colors.primary, bg: Colors.primarySoft },
             { icon: 'document-text', label: 'Privacy Policy', desc: 'How we handle your data', route: '/privacy-policy', color: '#34A853', bg: '#E8F5E9' },
             { icon: 'pulse', label: 'Connectivity Diagnostic', desc: 'Verify Supabase and AI reachability', route: '/diagnostics', color: '#8B5CF6', bg: Colors.violetLight },
           ].map((item) => (
@@ -383,7 +383,22 @@ export default function SettingsScreen() {
         {/* App Info */}
         <Animated.View entering={FadeInDown.duration(500).delay(500)} style={styles.appInfo}>
           <Text style={styles.appName}>MetroRide PH</Text>
-          <Text style={styles.appVersion}>Version 3.0 • Phase 6 Production</Text>
+          <Text style={styles.appTagline}>Elite Rail-Only Transit Engine</Text>
+          <Text style={styles.appVersion}>v3.0 · 2026 Rail Fare Engine · Live Cloud Sync</Text>
+          <View style={styles.lineBadgeStrip}>
+            <View style={[styles.lineBadge, { borderColor: 'rgba(245,197,0,0.4)', backgroundColor: 'rgba(245,197,0,0.08)' }]}>
+              <View style={[styles.lineBadgeDot, { backgroundColor: '#F5C500' }]} />
+              <Text style={[styles.lineBadgeText, { color: '#B8900A' }]}>LRT-1</Text>
+            </View>
+            <View style={[styles.lineBadge, { borderColor: 'rgba(17,67,168,0.4)', backgroundColor: 'rgba(17,67,168,0.08)' }]}>
+              <View style={[styles.lineBadgeDot, { backgroundColor: '#1143A8' }]} />
+              <Text style={[styles.lineBadgeText, { color: '#1A73E8' }]}>MRT-3</Text>
+            </View>
+            <View style={[styles.lineBadge, { borderColor: 'rgba(156,39,176,0.4)', backgroundColor: 'rgba(156,39,176,0.08)' }]}>
+              <View style={[styles.lineBadgeDot, { backgroundColor: '#9C27B0' }]} />
+              <Text style={[styles.lineBadgeText, { color: '#9C27B0' }]}>LRT-2</Text>
+            </View>
+          </View>
           <Text style={styles.appCopyright}>© 2026 MetroRide PH. All rights reserved.</Text>
         </Animated.View>
       </ScrollView>
@@ -655,6 +670,12 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
     color: Colors.text,
   },
+  appTagline: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.primary,
+    marginTop: 2,
+  },
   appVersion: {
     fontSize: FontSize.sm,
     color: Colors.textTertiary,
@@ -662,5 +683,30 @@ const styles = StyleSheet.create({
   appCopyright: {
     fontSize: FontSize.xs,
     color: Colors.textTertiary,
+    marginTop: 4,
+  },
+  lineBadgeStrip: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  lineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  lineBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  lineBadgeText: {
+    fontSize: 11,
+    fontWeight: FontWeight.semibold,
   },
 });
