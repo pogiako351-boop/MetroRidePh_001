@@ -5,7 +5,7 @@
     "version": "3.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "metrorideph",
+    "scheme": "fastshot",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -81,6 +81,13 @@
     "experiments": {
       "typedRoutes": true,
       "baseUrl": ""
+    },
+    "owner": "mr.vin",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bcd1df95-0ee7-4a61-803c-606847af15a3"
+      }
     }
   }
 }
