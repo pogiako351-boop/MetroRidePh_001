@@ -13,7 +13,9 @@ export interface FullDiagnosticReport {
   results: DiagnosticResult[];
 }
 
-// ── Test internet connectivity via a fast HEAD request ────────────────────
+// ── Test internet connectivity via a fast HEAD request to google.com ─────
+// Returns pass if google.com is reachable; returns a soft-fail otherwise
+// so the caller can upgrade to pass if Supabase is confirmed reachable.
 async function checkInternet(): Promise<DiagnosticResult> {
   const start = Date.now();
   try {
@@ -27,14 +29,17 @@ async function checkInternet(): Promise<DiagnosticResult> {
     return {
       label: 'Internet Connectivity',
       status: 'pass',
-      detail: 'Reachable',
+      detail: 'Reachable (google.com)',
       durationMs: Date.now() - start,
     };
   } catch {
+    // google.com fetch failed — mark as fail for now.
+    // runConnectivityDiagnostic() will upgrade this to pass if Supabase
+    // is reachable, implementing the mobile-data-safe heuristic.
     return {
       label: 'Internet Connectivity',
       status: 'fail',
-      detail: 'No internet connection detected',
+      detail: 'google.com unreachable — verifying via Supabase…',
       durationMs: Date.now() - start,
     };
   }
@@ -146,7 +151,21 @@ export async function runConnectivityDiagnostic(): Promise<FullDiagnosticReport>
     checkNewellAI(),
   ]);
 
-  const results = [envCheck, internet, supabaseCheck, newell];
+  // ── Heuristic: treat Internet as PASS when Supabase is confirmed reachable.
+  // This avoids false 'Fail' reports on mobile data where google.com HEAD
+  // requests may be blocked by carrier networks or captive portals, but
+  // real internet access is present (proven by Supabase connectivity).
+  const resolvedInternet: DiagnosticResult =
+    internet.status === 'fail' && supabaseCheck.status === 'pass'
+      ? {
+          label: 'Internet Connectivity',
+          status: 'pass',
+          detail: 'Verified via Supabase (mobile data / restricted network)',
+          durationMs: internet.durationMs,
+        }
+      : internet;
+
+  const results = [envCheck, resolvedInternet, supabaseCheck, newell];
   const failCount = results.filter((r) => r.status === 'fail').length;
   const warnCount = results.filter((r) => r.status === 'warn').length;
 

@@ -168,10 +168,23 @@ export default function DiagnosticsScreen() {
               </View>
             </View>
 
-            {/* Individual results */}
-            {report.results.map((r) => (
-              <ResultCard key={r.label} result={r} />
-            ))}
+            {/* Individual results — Internet Connectivity is forced green
+                whenever Supabase Reachability is green to prevent false
+                'Fail' reports on mobile data / restricted networks. */}
+            {report.results.map((r) => {
+              const supabasePass = report.results.find(
+                (x) => x.label === 'Supabase Reachability'
+              )?.status === 'pass';
+              const displayResult =
+                r.label === 'Internet Connectivity' && supabasePass && r.status !== 'pass'
+                  ? {
+                      ...r,
+                      status: 'pass' as const,
+                      detail: 'Verified via Supabase (mobile data / restricted network)',
+                    }
+                  : r;
+              return <ResultCard key={r.label} result={displayResult} />;
+            })}
 
             {/* Recommendation */}
             {report.overallStatus !== 'healthy' && (
