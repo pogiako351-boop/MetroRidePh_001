@@ -511,9 +511,9 @@ const styles = StyleSheet.create({
   },
   walkingCard: {
     marginBottom: Spacing.lg,
-    backgroundColor: '#F8FBFF',
+    backgroundColor: 'rgba(64,224,255,0.05)',
     borderWidth: 1,
-    borderColor: Colors.primarySoft,
+    borderColor: 'rgba(64,224,255,0.18)',
   },
   walkingHeader: {
     flexDirection: 'row',

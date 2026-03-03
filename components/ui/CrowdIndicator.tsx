@@ -17,19 +17,19 @@ const CROWD_CONFIG: Record<
 > = {
   light: {
     color: Colors.crowdLight,
-    bg: '#E6F4EA',
+    bg: 'rgba(34,197,94,0.10)',
     label: 'Light',
     icon: 'people-outline',
   },
   moderate: {
     color: Colors.crowdModerate,
-    bg: '#FEF7E0',
+    bg: 'rgba(255,184,0,0.10)',
     label: 'Moderate',
     icon: 'people',
   },
   heavy: {
     color: Colors.crowdHeavy,
-    bg: '#FCE8E6',
+    bg: 'rgba(255,68,68,0.10)',
     label: 'Heavy',
     icon: 'people-sharp',
   },

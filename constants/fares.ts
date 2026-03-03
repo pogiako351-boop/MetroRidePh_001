@@ -41,9 +41,9 @@ export const LINE_BRAND_COLORS: Record<
   LineId,
   { primary: string; soft: string; textOnBrand: string; softText: string }
 > = {
-  'LRT-1': { primary: '#F5C500', soft: '#FFFDE7', textOnBrand: '#3D2E00', softText: '#7A5C00' },
-  'MRT-3': { primary: '#1143A8', soft: '#E8EEF9', textOnBrand: '#FFFFFF',  softText: '#1143A8' },
-  'LRT-2': { primary: '#9C27B0', soft: '#F3E5F5', textOnBrand: '#FFFFFF',  softText: '#6A0080' },
+  'LRT-1': { primary: '#FFE600', soft: 'rgba(255,230,0,0.10)', textOnBrand: '#08090A', softText: '#FFE600' },
+  'MRT-3': { primary: '#4499FF', soft: 'rgba(68,153,255,0.10)', textOnBrand: '#FFFFFF', softText: '#4499FF' },
+  'LRT-2': { primary: '#BB44FF', soft: 'rgba(187,68,255,0.10)', textOnBrand: '#FFFFFF', softText: '#BB44FF' },
 };
 
 export const LINE_ICONS: Record<LineId, string> = {

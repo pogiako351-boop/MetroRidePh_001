@@ -507,11 +507,13 @@ function FareReceiptCard({
 
 const receiptStyles = StyleSheet.create({
   outer: {
-    backgroundColor: Colors.surface,
+    backgroundColor: 'rgba(13,14,16,0.98)',
     borderRadius: BorderRadius.xl,
     overflow: 'hidden',
     ...Shadow.lg,
     marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
   },
   header: {
     flexDirection: 'row',
@@ -793,6 +795,19 @@ export default function FareCalculatorScreen() {
   const [breakdown, setBreakdown] = useState<FareBreakdown | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
 
+  // Electric Cyan scanning pulse while calculating
+  const scanPulse = useRef(new RNAnimated.Value(0)).current;
+  useEffect(() => {
+    if (isCalculating) {
+      scanPulse.setValue(0);
+      RNAnimated.loop(
+        RNAnimated.timing(scanPulse, { toValue: 1, duration: 800, useNativeDriver: true })
+      ).start();
+    } else {
+      scanPulse.setValue(0);
+    }
+  }, [isCalculating, scanPulse]);
+
   // Derive primary line from current route
   const selectedRoute = routes[selectedRouteIndex];
   const primaryLine: LineId =
@@ -979,9 +994,26 @@ export default function FareCalculatorScreen() {
           </Pressable>
         </Animated.View>
 
-        {/* Calculating skeleton shimmer */}
+        {/* Calculating skeleton — Electric Cyan scanning pulse */}
         {isCalculating && (
           <Animated.View entering={FadeInUp.duration(300)} style={styles.skeletonReceiptCard}>
+            {/* Cyan scan line */}
+            <RNAnimated.View
+              style={[
+                styles.cyanScanLine,
+                {
+                  transform: [{
+                    translateY: scanPulse.interpolate({ inputRange: [0, 1], outputRange: [0, 160] }),
+                  }],
+                  opacity: scanPulse.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.6, 0] }),
+                },
+              ]}
+              pointerEvents="none"
+            />
+            <View style={styles.cyanScanLabel}>
+              <View style={styles.cyanScanDot} />
+              <Text style={styles.cyanScanText}>Querying 2026 Fare Matrix...</Text>
+            </View>
             <View style={styles.skeletonReceiptHeader}>
               <Skeleton width={120} height={14} borderRadius={6} />
               <Skeleton width={70} height={20} borderRadius={10} />
@@ -1194,6 +1226,8 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.md,
     ...Shadow.md,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
   },
   swapContainer: {
     flexDirection: 'row',
@@ -1219,6 +1253,8 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
     ...Shadow.sm,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
   },
   optionSection: {
     gap: Spacing.sm,
@@ -1329,6 +1365,49 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: Spacing.lg,
     ...Shadow.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.20)',
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    position: 'relative',
+  },
+  // Electric Cyan scanning pulse styles
+  cyanScanLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: Colors.electricCyan,
+    zIndex: 10,
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  cyanScanLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  cyanScanDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: Colors.electricCyan,
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  cyanScanText: {
+    fontSize: FontSize.xs,
+    color: Colors.electricCyan,
+    fontWeight: FontWeight.semibold,
+    letterSpacing: 0.3,
   },
   skeletonReceiptHeader: {
     flexDirection: 'row',

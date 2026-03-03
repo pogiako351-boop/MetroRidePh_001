@@ -134,7 +134,7 @@ export default function FavoritesScreen() {
           <Ionicons
             name="train"
             size={16}
-            color={activeTab === 'stations' ? Colors.textOnPrimary : Colors.textSecondary}
+            color={activeTab === 'stations' ? Colors.electricCyan : Colors.textSecondary}
           />
           <Text style={[styles.tabText, activeTab === 'stations' && styles.tabTextActive]}>
             Stations
@@ -147,7 +147,7 @@ export default function FavoritesScreen() {
           <Ionicons
             name="map"
             size={16}
-            color={activeTab === 'routes' ? Colors.textOnPrimary : Colors.textSecondary}
+            color={activeTab === 'routes' ? Colors.electricCyan : Colors.textSecondary}
           />
           <Text style={[styles.tabText, activeTab === 'routes' && styles.tabTextActive]}>
             Routes
@@ -334,7 +334,9 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   tabActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: 'rgba(64,224,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.25)',
   },
   tabText: {
     fontSize: FontSize.sm,
@@ -342,7 +344,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   tabTextActive: {
-    color: Colors.textOnPrimary,
+    color: Colors.electricCyan,
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
@@ -461,7 +463,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
   },
   exploreButtonText: {
-    color: Colors.textOnPrimary,
+    color: '#08090A',
     fontSize: FontSize.md,
     fontWeight: FontWeight.semibold,
   },

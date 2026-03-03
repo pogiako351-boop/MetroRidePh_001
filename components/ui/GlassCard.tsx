@@ -9,14 +9,18 @@ interface GlassCardProps {
   intensity?: number;
   tint?: 'light' | 'dark' | 'default';
   borderColor?: string;
+  neonGlow?: boolean;
+  glowColor?: string;
 }
 
 export function GlassCard({
   children,
   style,
-  intensity = 60,
-  tint = 'light',
+  intensity = 25,
+  tint = 'dark',
   borderColor,
+  neonGlow = false,
+  glowColor = Colors.neonLime,
 }: GlassCardProps) {
   if (Platform.OS === 'web') {
     return (
@@ -24,6 +28,7 @@ export function GlassCard({
         style={[
           styles.webFallback,
           borderColor ? { borderColor } : {},
+          neonGlow && { shadowColor: glowColor, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
           style,
         ]}
       >
@@ -39,6 +44,7 @@ export function GlassCard({
       style={[
         styles.glass,
         borderColor ? { borderColor } : {},
+        neonGlow && { shadowColor: glowColor, shadowOpacity: 0.4, shadowRadius: 14, elevation: 10 },
         style,
       ]}
     >
@@ -53,6 +59,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.glassBorder,
     overflow: 'hidden',
+    backgroundColor: 'rgba(13,14,16,0.6)',
   },
   inner: {
     flex: 1,
@@ -61,7 +68,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
     borderColor: Colors.glassBorder,
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    backgroundColor: 'rgba(13,14,16,0.92)',
     overflow: 'hidden',
   },
 });

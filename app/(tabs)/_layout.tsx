@@ -1,8 +1,22 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
+import { Platform, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, FontSize, FontWeight } from '@/constants/theme';
+import { Colors, FontSize, FontWeight, BorderRadius } from '@/constants/theme';
+import { BlurView } from 'expo-blur';
+
+function TabBarBackground() {
+  if (Platform.OS === 'web') {
+    return <View style={StyleSheet.absoluteFill} pointerEvents="none" />;
+  }
+  return (
+    <BlurView
+      intensity={40}
+      tint="dark"
+      style={StyleSheet.absoluteFill}
+    />
+  );
+}
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -11,7 +25,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
+        tabBarActiveTintColor: Colors.electricCyan,
         tabBarInactiveTintColor: Colors.textTertiary,
         tabBarLabelStyle: {
           fontSize: FontSize.xs,
@@ -19,26 +33,30 @@ export default function TabLayout() {
           marginTop: -2,
         },
         tabBarStyle: {
-          backgroundColor: Colors.surface,
-          borderTopColor: Colors.borderLight,
+          position: 'absolute',
+          backgroundColor: 'rgba(8,9,10,0.85)',
+          borderTopColor: Colors.glassBorder,
           borderTopWidth: 1,
           paddingBottom: insets.bottom,
           height: 56 + insets.bottom,
           ...Platform.select({
             ios: {
               shadowColor: '#000',
-              shadowOffset: { width: 0, height: -2 },
-              shadowOpacity: 0.05,
-              shadowRadius: 8,
+              shadowOffset: { width: 0, height: -4 },
+              shadowOpacity: 0.6,
+              shadowRadius: 16,
             },
             android: {
-              elevation: 8,
+              elevation: 16,
             },
           }),
         },
+        tabBarBackground: () => <TabBarBackground />,
         tabBarItemStyle: {
           paddingTop: 6,
         },
+        tabBarActiveBackgroundColor: 'transparent',
+        tabBarInactiveBackgroundColor: 'transparent',
       }}
     >
       <Tabs.Screen
@@ -46,11 +64,13 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'home' : 'home-outline'}
-              size={22}
-              color={color}
-            />
+            <View style={[focused && styles.activeIconBg]}>
+              <Ionicons
+                name={focused ? 'home' : 'home-outline'}
+                size={22}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
@@ -59,11 +79,13 @@ export default function TabLayout() {
         options={{
           title: 'Stations',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'train' : 'train-outline'}
-              size={22}
-              color={color}
-            />
+            <View style={[focused && styles.activeIconBg]}>
+              <Ionicons
+                name={focused ? 'train' : 'train-outline'}
+                size={22}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
@@ -72,11 +94,13 @@ export default function TabLayout() {
         options={{
           title: 'Alerts',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'notifications' : 'notifications-outline'}
-              size={22}
-              color={color}
-            />
+            <View style={[focused && styles.activeIconBg]}>
+              <Ionicons
+                name={focused ? 'notifications' : 'notifications-outline'}
+                size={22}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
@@ -85,14 +109,28 @@ export default function TabLayout() {
         options={{
           title: 'Favorites',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'heart' : 'heart-outline'}
-              size={22}
-              color={color}
-            />
+            <View style={[focused && styles.activeIconBg]}>
+              <Ionicons
+                name={focused ? 'heart' : 'heart-outline'}
+                size={22}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  activeIconBg: {
+    backgroundColor: 'rgba(64,224,255,0.12)',
+    borderRadius: BorderRadius.md,
+    padding: 4,
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+});

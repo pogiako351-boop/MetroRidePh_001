@@ -1,48 +1,82 @@
+// ─── Ultra-Dark Premium Edition · Spatial UI Theme ────────────────────────────
 export const Colors = {
-  primary: '#1A73E8',
-  primaryDark: '#1557B0',
-  primaryLight: '#4A90D9',
-  primarySoft: '#E8F0FE',
-  secondary: '#5F6368',
-  background: '#F8F9FA',
-  surface: '#FFFFFF',
-  surfaceElevated: '#FFFFFF',
-  text: '#202124',
-  textSecondary: '#5F6368',
-  textTertiary: '#9AA0A6',
-  textOnPrimary: '#FFFFFF',
-  border: '#E8EAED',
-  borderLight: '#F1F3F4',
-  divider: '#DADCE0',
-  success: '#34A853',
-  warning: '#FBBC04',
-  error: '#EA4335',
-  info: '#4285F4',
-  crowdLight: '#34A853',
-  crowdModerate: '#FBBC04',
-  crowdHeavy: '#EA4335',
-  mrt3: '#1143A8',  // Deep Blue
-  lrt1: '#F5C500',  // Vibrant Yellow
-  lrt2: '#9C27B0',  // Luminous Violet
-  shadow: 'rgba(0, 0, 0, 0.08)',
-  shadowDark: 'rgba(0, 0, 0, 0.15)',
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  shimmer: '#E8EAED',
-  gold: '#F4B400',
-  premium: '#1A237E',
-  premiumGradientStart: '#1A73E8',
-  premiumGradientEnd: '#0D47A1',
-  // Phase 2: AI & Community accent colors
-  violet: '#8B5CF6',
-  violetLight: '#EDE9FE',
-  violetDark: '#6D28D9',
-  amber: '#F59E0B',
-  amberLight: '#FEF3C7',
-  amberDark: '#D97706',
-  // Glassmorphism
-  glass: 'rgba(255, 255, 255, 0.18)',
-  glassBorder: 'rgba(255, 255, 255, 0.3)',
-  glassDark: 'rgba(0, 0, 0, 0.2)',
+  // ── Core Backgrounds (Onyx Palette) ──────────────────────────────────────
+  background: '#08090A',          // Onyx base
+  surface: '#0D0E10',             // Glass surface
+  surfaceElevated: '#111215',     // Elevated glass surface
+  surfaceGlass: 'rgba(255,255,255,0.05)',
+
+  // ── Primary Accent (Electric Cyan) ───────────────────────────────────────
+  primary: '#40E0FF',             // Electric Cyan
+  primaryDark: '#00C8E8',
+  primaryLight: '#7AEFFF',
+  primarySoft: 'rgba(64,224,255,0.10)',
+
+  secondary: '#64748B',
+
+  // ── Typography ───────────────────────────────────────────────────────────
+  text: '#FFFFFF',                // Pure white for primary values
+  textSecondary: '#64748B',       // Muted slate
+  textTertiary: '#3F4D5C',        // Deep muted
+  textOnPrimary: '#08090A',       // Dark text on bright accents
+
+  // ── Borders (Light-Catcher Effect) ───────────────────────────────────────
+  border: 'rgba(255,255,255,0.10)',      // 1px light-catcher border
+  borderLight: 'rgba(255,255,255,0.06)',
+  divider: 'rgba(255,255,255,0.08)',
+
+  // ── Status ────────────────────────────────────────────────────────────────
+  success: '#22C55E',
+  warning: '#FFB800',
+  error: '#FF4444',
+  info: '#40E0FF',
+
+  // ── Crowd Levels ──────────────────────────────────────────────────────────
+  crowdLight: '#22C55E',
+  crowdModerate: '#FFB800',
+  crowdHeavy: '#FF4444',
+
+  // ── Rail Line Colors (Neon Enhanced) ─────────────────────────────────────
+  mrt3: '#4499FF',      // Neon Blue
+  lrt1: '#FFE600',      // Neon Yellow
+  lrt2: '#BB44FF',      // Neon Violet
+
+  // ── Shadows & Overlays ───────────────────────────────────────────────────
+  shadow: 'rgba(0,0,0,0.5)',
+  shadowDark: 'rgba(0,0,0,0.8)',
+  overlay: 'rgba(0,0,0,0.75)',
+  shimmer: '#1A1C1F',
+
+  // ── Premium & Special ────────────────────────────────────────────────────
+  gold: '#FFB800',
+  premium: '#40E0FF',
+  premiumGradientStart: '#40E0FF',
+  premiumGradientEnd: '#7B2FFF',
+
+  // ── AI & Community Accent ────────────────────────────────────────────────
+  violet: '#BB44FF',
+  violetLight: 'rgba(187,68,255,0.15)',
+  violetDark: '#9933DD',
+  amber: '#FFB800',
+  amberLight: 'rgba(255,184,0,0.12)',
+  amberDark: '#CC8800',
+
+  // ── Dark Glassmorphism ───────────────────────────────────────────────────
+  glass: 'rgba(255,255,255,0.05)',
+  glassBorder: 'rgba(255,255,255,0.10)',
+  glassDark: 'rgba(0,0,0,0.6)',
+
+  // ── Ultra-Dark Premium Specials ───────────────────────────────────────────
+  neonLime: '#B6FF3B',         // Active line glow / exit markers
+  electricCyan: '#40E0FF',     // Fare scan pulse / AI breathing
+  onyxBase: '#08090A',         // True onyx
+  meshBlue: '#0A1628',         // Deep midnight blue for mesh gradients
+  supabaseGreen: '#3ECF8E',    // Verified via Supabase dot
+
+  // ── Neomorphic Inset (Action Buttons) ────────────────────────────────────
+  neomorphicBg: '#0A0B0D',
+  neomorphicLight: 'rgba(255,255,255,0.04)',
+  neomorphicDark: 'rgba(0,0,0,0.8)',
 };
 
 export const Spacing = {
@@ -86,23 +120,44 @@ export const FontWeight = {
 export const Shadow = {
   sm: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  md: {
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.5,
     shadowRadius: 8,
     elevation: 4,
   },
-  lg: {
+  md: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.6,
     shadowRadius: 16,
     elevation: 8,
+  },
+  lg: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.8,
+    shadowRadius: 32,
+    elevation: 16,
+  },
+  neonLime: {
+    shadowColor: '#B6FF3B',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  electricCyan: {
+    shadowColor: '#40E0FF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  supabase: {
+    shadowColor: '#3ECF8E',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 6,
   },
 };

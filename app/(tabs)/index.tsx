@@ -15,7 +15,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInRight, FadeInUp } from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius, Shadow } from '@/constants/theme';
 import { Station, ALL_STATIONS } from '@/constants/stations';
-import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { LineDot } from '@/components/ui/LineDot';
 import { CommuterBadge } from '@/components/ui/CommuterBadge';
@@ -42,26 +41,24 @@ import LiveDataBadge from '@/components/ui/LiveDataBadge';
 import { Skeleton, StationCardSkeleton } from '@/components/ui/Skeleton';
 
 const QUICK_ACTIONS = [
-  { id: 'ai', title: 'MetroAI\nAssistant', icon: 'chatbubbles-outline' as const, color: Colors.violet, route: '/metro-ai' },
-  { id: 'map', title: 'System\nMap', icon: 'map-outline' as const, color: Colors.primary, route: '/transit-map' },
-  { id: 'fare', title: 'Fare\nCalculator', icon: 'calculator-outline' as const, color: '#34A853', route: '/fare-calculator' },
-  { id: 'route', title: 'Route\nPlanner', icon: 'navigate-outline' as const, color: '#9C27B0', route: '/route-planner' },
+  { id: 'ai', title: 'MetroAI\nAssistant', icon: 'chatbubbles-outline' as const, color: Colors.electricCyan, route: '/metro-ai' },
+  { id: 'map', title: 'System\nMap', icon: 'map-outline' as const, color: Colors.lrt1, route: '/transit-map' },
+  { id: 'fare', title: 'Fare\nCalculator', icon: 'calculator-outline' as const, color: Colors.neonLime, route: '/fare-calculator' },
+  { id: 'route', title: 'Route\nPlanner', icon: 'navigate-outline' as const, color: Colors.lrt2, route: '/route-planner' },
   { id: 'insights', title: 'My\nInsights', icon: 'stats-chart-outline' as const, color: Colors.amber, route: '/insights' },
-  { id: 'beep', title: 'Beep\nCard', icon: 'card-outline' as const, color: '#059669', route: '/beep-card' },
-  { id: 'alerts', title: 'Live\nAlerts', icon: 'notifications-outline' as const, color: '#EA4335', route: '/(tabs)/alerts' },
+  { id: 'beep', title: 'Beep\nCard', icon: 'card-outline' as const, color: '#22C55E', route: '/beep-card' },
+  { id: 'alerts', title: 'Live\nAlerts', icon: 'notifications-outline' as const, color: '#FF4444', route: '/(tabs)/alerts' },
   { id: 'settings', title: 'Settings', icon: 'settings-outline' as const, color: Colors.textSecondary, route: '/settings' },
-  { id: 'premium', title: 'Go\nPremium', icon: 'diamond-outline' as const, color: Colors.violetDark, route: '/premium' },
+  { id: 'premium', title: 'Go\nPremium', icon: 'diamond-outline' as const, color: Colors.violet, route: '/premium' },
 ];
 
-/** Returns a tinted header background based on current hour */
-function getTimeOfDayTint(hour: number): { bg: string; label: string; emoji: string } {
-  if (hour >= 5 && hour < 11) return { bg: '#EBF3FE', label: 'Good Morning', emoji: '🌅' };
-  if (hour >= 11 && hour < 16) return { bg: '#F8F9FA', label: 'Good Afternoon', emoji: '☀️' };
-  if (hour >= 16 && hour < 20) return { bg: '#FEF3C7', label: 'Good Evening', emoji: '🌇' };
-  return { bg: '#E8EEF9', label: 'Good Night', emoji: '🌙' };
+function getTimeOfDayLabel(hour: number): { label: string; emoji: string } {
+  if (hour >= 5 && hour < 11) return { label: 'Good Morning', emoji: '🌅' };
+  if (hour >= 11 && hour < 16) return { label: 'Good Afternoon', emoji: '☀️' };
+  if (hour >= 16 && hour < 20) return { label: 'Good Evening', emoji: '🌇' };
+  return { label: 'Good Night', emoji: '🌙' };
 }
 
-/** Contextual proactive tips based on time/conditions */
 function getProactiveTip(hour: number, hasAlerts: boolean): { text: string; icon: string; color: string } | null {
   if (hasAlerts) return { text: 'Active service alerts on your lines — check for delays before you leave.', icon: 'warning', color: Colors.warning };
   if (hour >= 7 && hour <= 9) return { text: '🚨 Morning rush hour: Expect heavy crowds. Try boarding 1–2 stations earlier.', icon: 'people', color: Colors.error };
@@ -96,12 +93,14 @@ export default function DashboardScreen() {
   const reportPulseAnims = useRef<RNAnimated.Value[]>([]).current;
   const fabOverlayOpacity = useRef(new RNAnimated.Value(0)).current;
   const trainRefreshAnim = useRef(new RNAnimated.Value(-60)).current;
+  const meshAnim1 = useRef(new RNAnimated.Value(0)).current;
+  const meshAnim2 = useRef(new RNAnimated.Value(0)).current;
+  const supabasePulse = useRef(new RNAnimated.Value(1)).current;
 
   const hour = currentTime.getHours();
-  const timeTint = getTimeOfDayTint(hour);
+  const timeTint = getTimeOfDayLabel(hour);
   const proactiveTip = proactiveDismissed ? null : getProactiveTip(hour, criticalAlerts.length > 0);
 
-  // Initialize report pulse anims
   useEffect(() => {
     communityReports.forEach((_, i) => {
       if (!reportPulseAnims[i]) {
@@ -126,16 +125,45 @@ export default function DashboardScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  // ETA pulse
   useEffect(() => {
     const pulse = RNAnimated.loop(
       RNAnimated.sequence([
-        RNAnimated.timing(pulseAnim, { toValue: 1.05, duration: 1000, useNativeDriver: true }),
-        RNAnimated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        RNAnimated.timing(pulseAnim, { toValue: 1.04, duration: 1200, useNativeDriver: true }),
+        RNAnimated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
       ])
     );
     pulse.start();
     return () => pulse.stop();
   }, [pulseAnim]);
+
+  // Supabase dot pulse
+  useEffect(() => {
+    const pulse = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(supabasePulse, { toValue: 1.5, duration: 1000, useNativeDriver: true }),
+        RNAnimated.timing(supabasePulse, { toValue: 1, duration: 1000, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [supabasePulse]);
+
+  // Animated mesh gradient drift
+  useEffect(() => {
+    RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(meshAnim1, { toValue: 1, duration: 6000, useNativeDriver: true }),
+        RNAnimated.timing(meshAnim1, { toValue: 0, duration: 6000, useNativeDriver: true }),
+      ])
+    ).start();
+    RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(meshAnim2, { toValue: 1, duration: 8000, useNativeDriver: true }),
+        RNAnimated.timing(meshAnim2, { toValue: 0, duration: 8000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [meshAnim1, meshAnim2]);
 
   const loadData = useCallback(async () => {
     const [stations, routes, profile, reports, recent] = await Promise.all([
@@ -160,7 +188,6 @@ export default function DashboardScreen() {
   const onRefresh = useCallback(async () => {
     hapticMedium();
     setRefreshing(true);
-    // Train animation across screen
     trainRefreshAnim.setValue(-60);
     RNAnimated.timing(trainRefreshAnim, {
       toValue: 400,
@@ -180,7 +207,6 @@ export default function DashboardScreen() {
       });
     } else {
       setShowSearch(false);
-      // Show recent stations as suggestions when empty
       if (recentStations.length > 0) {
         setSearchResults(recentStations);
       } else {
@@ -257,8 +283,22 @@ export default function DashboardScreen() {
     .map((f) => ({ ...f, station: ALL_STATIONS.find((s) => s.id === f.stationId) }))
     .filter((f) => f.station);
 
+  // Mesh gradient X offsets
+  const mesh1X = meshAnim1.interpolate({ inputRange: [0, 1], outputRange: [-20, 20] });
+  const mesh2X = meshAnim2.interpolate({ inputRange: [0, 1], outputRange: [20, -20] });
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Animated Mesh Gradient Background */}
+      <RNAnimated.View
+        style={[styles.meshBlob1, { transform: [{ translateX: mesh1X }] }]}
+        pointerEvents="none"
+      />
+      <RNAnimated.View
+        style={[styles.meshBlob2, { transform: [{ translateX: mesh2X }] }]}
+        pointerEvents="none"
+      />
+
       {/* Train refresh indicator */}
       {refreshing && (
         <RNAnimated.View
@@ -276,16 +316,15 @@ export default function DashboardScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.primary}
+            tintColor={Colors.electricCyan}
             title="Refreshing..."
-            titleColor={Colors.textTertiary}
+            titleColor={Colors.textSecondary}
           />
         }
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Time-based tinted header area */}
-        <View style={[styles.headerTint, { backgroundColor: timeTint.bg }]}>
-          {/* Header */}
+        {/* Dark Header Area */}
+        <View style={styles.headerArea}>
           <Animated.View entering={FadeInDown.duration(500).delay(100)} style={styles.header}>
             <View style={{ flex: 1 }}>
               <View style={styles.appNameRow}>
@@ -294,6 +333,17 @@ export default function DashboardScreen() {
               </View>
               <Text style={styles.railTagline}>Elite Rail Engine · LRT-1 · MRT-3 · LRT-2</Text>
               <Text style={styles.dateText}>{timeTint.emoji} {formatDate(currentTime)}</Text>
+
+              {/* Verified via Supabase dot */}
+              <View style={styles.supabaseRow}>
+                <View style={styles.supabaseDotWrapper}>
+                  <RNAnimated.View
+                    style={[styles.supabaseDotRing, { transform: [{ scale: supabasePulse }], opacity: supabasePulse.interpolate({ inputRange: [1, 1.5], outputRange: [0.4, 0] }) }]}
+                  />
+                  <View style={styles.supabaseDotCore} />
+                </View>
+                <Text style={styles.supabaseLabel}>Verified via Supabase</Text>
+              </View>
             </View>
             <View style={styles.headerRight}>
               <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
@@ -304,7 +354,7 @@ export default function DashboardScreen() {
                 <Ionicons name="settings-outline" size={18} color={Colors.textSecondary} />
               </Pressable>
               <Pressable onPress={() => { hapticLight(); router.push('/premium'); }} style={styles.premiumButton}>
-                <Ionicons name="diamond" size={16} color={Colors.gold} />
+                <Ionicons name="diamond" size={16} color={Colors.electricCyan} />
               </Pressable>
             </View>
           </Animated.View>
@@ -366,13 +416,13 @@ export default function DashboardScreen() {
           </Animated.View>
         )}
 
-        {/* Proactive Suggestions Banner */}
+        {/* Proactive Banner */}
         {proactiveTip && (
           <Animated.View entering={FadeInUp.duration(400).delay(200)} style={styles.proactiveBanner}>
             <View style={[styles.proactiveIcon, { backgroundColor: proactiveTip.color + '20' }]}>
               <Ionicons name={proactiveTip.icon as 'warning'} size={18} color={proactiveTip.color} />
             </View>
-            <Text style={[styles.proactiveText, { color: proactiveTip.color === Colors.warning ? '#92400E' : proactiveTip.color }]}>
+            <Text style={[styles.proactiveText, { color: proactiveTip.color }]}>
               {proactiveTip.text}
             </Text>
             <Pressable onPress={() => { hapticLight(); setProactiveDismissed(true); }} style={styles.proactiveDismiss}>
@@ -389,7 +439,7 @@ export default function DashboardScreen() {
               style={({ pressed }) => [styles.alertBanner, pressed && styles.pressed]}
             >
               <View style={styles.alertIconContainer}>
-                <Ionicons name="warning" size={20} color="#E37400" />
+                <Ionicons name="warning" size={20} color={Colors.warning} />
               </View>
               <View style={styles.alertBannerContent}>
                 <Text style={styles.alertBannerTitle} numberOfLines={1}>
@@ -407,7 +457,9 @@ export default function DashboardScreen() {
         {/* Next Train ETA */}
         <Animated.View entering={FadeInDown.duration(500).delay(400)}>
           <RNAnimated.View style={{ transform: [{ scale: pulseAnim }] }}>
-            <Card style={styles.etaCard}>
+            <View style={styles.etaCard}>
+              {/* ETA glow orb */}
+              <View style={styles.etaGlowOrb} />
               <View style={styles.etaHeader}>
                 <View style={styles.etaLabelRow}>
                   <View style={styles.liveDot} />
@@ -422,49 +474,49 @@ export default function DashboardScreen() {
                 <Text style={styles.etaUnit}>min</Text>
               </View>
               <Text style={styles.etaSubtext}>North Avenue → Taft Avenue</Text>
-            </Card>
+            </View>
           </RNAnimated.View>
         </Animated.View>
 
-        {/* Rail Engine Feature Strip */}
+        {/* Rail Engine Feature Strip — Neomorphic */}
         <Animated.View entering={FadeInDown.duration(500).delay(450)} style={styles.railEngineStrip}>
           <View style={styles.railEngineItem}>
-            <View style={[styles.railEngineIcon, { backgroundColor: 'rgba(245,197,0,0.15)' }]}>
-              <Ionicons name="flash" size={14} color="#F5C500" />
+            <View style={[styles.railEngineIcon, styles.neomorphicIcon]}>
+              <Ionicons name="flash" size={14} color={Colors.lrt1} />
             </View>
             <Text style={styles.railEngineLabel}>2026 Rail{'\n'}Fare Engine</Text>
           </View>
           <View style={styles.railEngineDiv} />
           <View style={styles.railEngineItem}>
-            <View style={[styles.railEngineIcon, { backgroundColor: 'rgba(52,168,83,0.15)' }]}>
-              <Ionicons name="cloud-done" size={14} color="#34A853" />
+            <View style={[styles.railEngineIcon, styles.neomorphicIcon]}>
+              <Ionicons name="cloud-done" size={14} color={Colors.supabaseGreen} />
             </View>
             <Text style={styles.railEngineLabel}>Live Cloud{'\n'}Sync</Text>
           </View>
           <View style={styles.railEngineDiv} />
           <View style={styles.railEngineItem}>
-            <View style={[styles.railEngineIcon, { backgroundColor: 'rgba(245,197,0,0.15)' }]}>
-              <View style={[styles.railLineDot, { backgroundColor: '#F5C500' }]} />
+            <View style={[styles.railEngineIcon, styles.neomorphicIcon]}>
+              <View style={[styles.railLineDot, { backgroundColor: Colors.lrt1, shadowColor: Colors.lrt1, shadowOpacity: 0.8, shadowRadius: 4, elevation: 4 }]} />
             </View>
             <Text style={styles.railEngineLabel}>LRT-1{'\n'}Yellow</Text>
           </View>
           <View style={styles.railEngineDiv} />
           <View style={styles.railEngineItem}>
-            <View style={[styles.railEngineIcon, { backgroundColor: 'rgba(17,67,168,0.15)' }]}>
-              <View style={[styles.railLineDot, { backgroundColor: '#1143A8' }]} />
+            <View style={[styles.railEngineIcon, styles.neomorphicIcon]}>
+              <View style={[styles.railLineDot, { backgroundColor: Colors.mrt3, shadowColor: Colors.mrt3, shadowOpacity: 0.8, shadowRadius: 4, elevation: 4 }]} />
             </View>
             <Text style={styles.railEngineLabel}>MRT-3{'\n'}Blue</Text>
           </View>
           <View style={styles.railEngineDiv} />
           <View style={styles.railEngineItem}>
-            <View style={[styles.railEngineIcon, { backgroundColor: 'rgba(156,39,176,0.15)' }]}>
-              <View style={[styles.railLineDot, { backgroundColor: '#9C27B0' }]} />
+            <View style={[styles.railEngineIcon, styles.neomorphicIcon]}>
+              <View style={[styles.railLineDot, { backgroundColor: Colors.lrt2, shadowColor: Colors.lrt2, shadowOpacity: 0.8, shadowRadius: 4, elevation: 4 }]} />
             </View>
             <Text style={styles.railEngineLabel}>LRT-2{'\n'}Violet</Text>
           </View>
         </Animated.View>
 
-        {/* Quick Actions */}
+        {/* Quick Actions — Neomorphic */}
         <Animated.View entering={FadeInDown.duration(500).delay(500)} style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
         </Animated.View>
@@ -475,10 +527,13 @@ export default function DashboardScreen() {
               style={({ pressed }) => [styles.quickAction, pressed && styles.quickActionPressed]}
               onPress={() => handleQuickAction(action.route)}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: action.color + '18' }]}>
-                <Ionicons name={action.icon} size={24} color={action.color} />
+              {/* Inner shadow effect — neomorphic recessed */}
+              <View style={styles.quickActionInner}>
+                <View style={[styles.quickActionIcon, { backgroundColor: action.color + '18' }]}>
+                  <Ionicons name={action.icon} size={24} color={action.color} />
+                </View>
+                <Text style={styles.quickActionTitle}>{action.title}</Text>
               </View>
-              <Text style={styles.quickActionTitle}>{action.title}</Text>
             </Pressable>
           ))}
         </Animated.View>
@@ -524,7 +579,7 @@ export default function DashboardScreen() {
                     </View>
                   </View>
                 </>
-              ) : communityReports.map((report, idx) => {
+              ) : communityReports.map((report) => {
                 const cat = REPORT_CATEGORIES[report.category];
                 return (
                   <View key={report.id} style={styles.reportCard}>
@@ -555,7 +610,7 @@ export default function DashboardScreen() {
           </>
         )}
 
-        {/* Favorites Shortcut */}
+        {/* Favorites */}
         {favStationData.length > 0 && (
           <>
             <Animated.View entering={FadeInRight.duration(500).delay(900)} style={styles.sectionHeader}>
@@ -579,7 +634,7 @@ export default function DashboardScreen() {
                     <Ionicons
                       name={fav.label === 'home' ? 'home' : fav.label === 'work' ? 'briefcase' : 'star'}
                       size={18}
-                      color={Colors.primary}
+                      color={Colors.electricCyan}
                     />
                   </View>
                   <Text style={styles.favName} numberOfLines={1}>{fav.station?.name}</Text>
@@ -593,7 +648,7 @@ export default function DashboardScreen() {
           </>
         )}
 
-        {/* Line Status Summary */}
+        {/* Line Status — Glass Panels with Neon Lime Glow */}
         <Animated.View entering={FadeInDown.duration(500).delay(1000)} style={styles.sectionHeader}>
           {isLoadingData ? (
             <Skeleton width={110} height={20} borderRadius={6} />
@@ -613,11 +668,21 @@ export default function DashboardScreen() {
             </>
           ) : (
             ([
-              { line: 'LRT-1', sub: 'Roosevelt – Baclaran · Yellow Line', color: '#F5C500' },
-              { line: 'MRT-3', sub: 'North Ave – Taft Ave · Blue Line', color: '#1143A8' },
-              { line: 'LRT-2', sub: 'Recto – Antipolo · Violet Line', color: '#9C27B0' },
+              { line: 'LRT-1', sub: 'Roosevelt – Baclaran · Yellow Line', color: Colors.lrt1 },
+              { line: 'MRT-3', sub: 'North Ave – Taft Ave · Blue Line', color: Colors.mrt3 },
+              { line: 'LRT-2', sub: 'Recto – Antipolo · Violet Line', color: Colors.lrt2 },
             ] as const).map(({ line, sub, color }) => (
-              <Card key={line} style={styles.lineStatusCard} onPress={() => router.push('/(tabs)/stations')}>
+              <Pressable
+                key={line}
+                style={({ pressed }) => [
+                  styles.lineStatusCard,
+                  { borderColor: color + '35', shadowColor: Colors.neonLime, shadowOpacity: 0.25, shadowRadius: 14 },
+                  pressed && styles.pressed,
+                ]}
+                onPress={() => router.push('/(tabs)/stations')}
+              >
+                {/* Neon lime glow edge */}
+                <View style={[styles.lineStatusGlow, { backgroundColor: color }]} />
                 <View style={styles.lineStatusRow}>
                   <LineDot line={line} size={14} />
                   <View style={{ flex: 1 }}>
@@ -625,13 +690,16 @@ export default function DashboardScreen() {
                     <Text style={[styles.lineStatusSub, { color }]}>{sub}</Text>
                   </View>
                   <Badge text="Normal" variant="success" small />
+                  <View style={styles.lineStatusGlowDot}>
+                    <View style={[styles.lineGlowCore, { backgroundColor: color }]} />
+                  </View>
                 </View>
-              </Card>
+              </Pressable>
             ))
           )}
         </Animated.View>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
 
       {/* FAB Overlay */}
@@ -672,7 +740,7 @@ export default function DashboardScreen() {
           <FABMenuItem
             icon="snow-outline"
             label="Aircon Issue"
-            color={Colors.primary}
+            color={Colors.electricCyan}
             onPress={() => { toggleFab(); setShowReportModal(true); }}
             delay={120}
             visible={fabExpanded}
@@ -708,16 +776,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  // Animated mesh gradient blobs
+  meshBlob1: {
+    position: 'absolute',
+    top: -80,
+    left: -60,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(10,22,40,0.95)',
+    opacity: 0.7,
+  },
+  meshBlob2: {
+    position: 'absolute',
+    top: 100,
+    right: -80,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(0,15,35,0.85)',
+    opacity: 0.5,
+  },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxxl,
   },
-  // Time-based header tint
-  headerTint: {
+  // Dark header area
+  headerArea: {
     marginHorizontal: -Spacing.lg,
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.sm,
     marginBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.glassBorder,
   },
   header: {
     flexDirection: 'row',
@@ -726,7 +817,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     marginBottom: Spacing.md,
   },
-  // Train refresh bar
+  // Train refresh
   trainRefreshBar: {
     position: 'absolute',
     top: 0,
@@ -736,31 +827,68 @@ const styles = StyleSheet.create({
     zIndex: 999,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: 'rgba(64,224,255,0.08)',
     paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.electricCyan + '30',
   },
   trainEmoji: {
     fontSize: 18,
   },
   trainTrack: {
     flex: 1,
-    height: 3,
-    backgroundColor: Colors.primary + '40',
+    height: 2,
+    backgroundColor: Colors.electricCyan + '40',
     borderRadius: 2,
+  },
+  // Supabase connectivity
+  supabaseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  supabaseDotWrapper: {
+    width: 10,
+    height: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  supabaseDotRing: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.supabaseGreen,
+  },
+  supabaseDotCore: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.supabaseGreen,
+    shadowColor: Colors.supabaseGreen,
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  supabaseLabel: {
+    fontSize: FontSize.xs,
+    color: Colors.supabaseGreen,
+    fontWeight: FontWeight.semibold,
+    letterSpacing: 0.2,
   },
   // Proactive Banner
   proactiveBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.sm,
-    backgroundColor: Colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
-    ...Shadow.sm,
+    borderColor: Colors.glassBorder,
   },
   proactiveIcon: {
     width: 32,
@@ -780,14 +908,14 @@ const styles = StyleSheet.create({
     padding: 2,
     flexShrink: 0,
   },
-  // Recent search labels
+  // Recent stations
   recentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
   },
   recentLabel: {
     fontSize: FontSize.xs,
@@ -798,14 +926,16 @@ const styles = StyleSheet.create({
   },
   // Settings button
   settingsButton: {
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surfaceElevated,
     borderRadius: BorderRadius.full,
     padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
   },
   appName: {
     fontSize: FontSize.xxxl,
     fontWeight: FontWeight.heavy,
-    color: Colors.primary,
+    color: Colors.text,
     letterSpacing: -0.5,
   },
   dateText: {
@@ -823,9 +953,11 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   premiumButton: {
-    backgroundColor: Colors.premium + '10',
+    backgroundColor: 'rgba(64,224,255,0.10)',
     borderRadius: BorderRadius.full,
     padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.electricCyan + '30',
   },
   searchBarContainer: {
     marginBottom: Spacing.lg,
@@ -837,6 +969,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
     ...Shadow.sm,
   },
   searchInput: {
@@ -850,6 +984,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.lg,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
     ...Shadow.md,
   },
   searchResultItem: {
@@ -858,7 +994,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: Colors.glassBorder,
   },
   searchResultName: {
     fontSize: FontSize.md,
@@ -876,21 +1012,21 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: 0.82,
   },
   alertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF7E0',
+    backgroundColor: 'rgba(255,184,0,0.06)',
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.lg,
     gap: Spacing.md,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: 'rgba(255,184,0,0.20)',
   },
   alertIconContainer: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: 'rgba(255,184,0,0.10)',
     borderRadius: BorderRadius.full,
     padding: Spacing.sm,
   },
@@ -898,16 +1034,38 @@ const styles = StyleSheet.create({
   alertBannerTitle: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.semibold,
-    color: '#92400E',
+    color: Colors.warning,
   },
   alertBannerDesc: {
     fontSize: FontSize.xs,
-    color: '#A16207',
+    color: Colors.amber,
     marginTop: 1,
+    opacity: 0.8,
   },
+  // ETA Card — dark glass with glow
   etaCard: {
-    backgroundColor: Colors.primary,
+    backgroundColor: 'rgba(64,224,255,0.07)',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
     marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.25)',
+    overflow: 'hidden',
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
+  etaGlowOrb: {
+    position: 'absolute',
+    top: -40,
+    right: -20,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: Colors.electricCyan,
+    opacity: 0.04,
   },
   etaHeader: {
     flexDirection: 'row',
@@ -924,12 +1082,16 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#34A853',
+    backgroundColor: Colors.neonLime,
+    shadowColor: Colors.neonLime,
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
   },
   etaLabel: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.medium,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.7)',
   },
   etaTimeContainer: {
     flexDirection: 'row',
@@ -937,19 +1099,19 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   etaTime: {
-    fontSize: 48,
+    fontSize: 52,
     fontWeight: FontWeight.heavy,
-    color: '#FFFFFF',
-    letterSpacing: -1,
+    color: Colors.text,
+    letterSpacing: -2,
   },
   etaUnit: {
     fontSize: FontSize.lg,
     fontWeight: FontWeight.medium,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.5)',
   },
   etaSubtext: {
     fontSize: FontSize.sm,
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.45)',
     marginTop: Spacing.xs,
   },
   sectionHeader: {
@@ -973,16 +1135,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EA333315',
+    backgroundColor: 'rgba(255,68,68,0.12)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,68,68,0.25)',
   },
   livePillDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: Colors.error,
+    shadowColor: Colors.error,
+    shadowOpacity: 0.8,
+    shadowRadius: 3,
+    elevation: 2,
   },
   livePillText: {
     fontSize: 9,
@@ -993,8 +1161,9 @@ const styles = StyleSheet.create({
   seeAll: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.semibold,
-    color: Colors.primary,
+    color: Colors.electricCyan,
   },
+  // Quick Actions — Neomorphic recessed
   quickActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1003,15 +1172,29 @@ const styles = StyleSheet.create({
   },
   quickAction: {
     width: '30%',
-    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    // Neomorphic outer shadow
+    shadowColor: '#000',
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    shadowOffset: { width: 2, height: 4 },
+    elevation: 6,
+  },
+  quickActionInner: {
+    backgroundColor: Colors.neomorphicBg,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     alignItems: 'center',
-    ...Shadow.sm,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    // Inner shadow simulation via top/left highlight
+    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderLeftColor: 'rgba(255,255,255,0.04)',
   },
   quickActionPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.97 }],
+    opacity: 0.78,
+    transform: [{ scale: 0.96 }],
   },
   quickActionIcon: {
     width: 48,
@@ -1020,11 +1203,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   quickActionTitle: {
     fontSize: FontSize.xs,
     fontWeight: FontWeight.semibold,
-    color: Colors.text,
+    color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 14,
   },
@@ -1037,9 +1222,9 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
-    ...Shadow.sm,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.glassBorder,
+    ...Shadow.sm,
   },
   reportIconBox: {
     width: 40,
@@ -1067,12 +1252,12 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: Colors.amber + '40',
+    borderColor: 'rgba(255,184,0,0.25)',
   },
   upvoteCount: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.bold,
-    color: Colors.amberDark,
+    color: Colors.amber,
   },
   favHorizontal: {
     paddingBottom: Spacing.md,
@@ -1084,13 +1269,17 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     width: 120,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
     ...Shadow.sm,
   },
   favIconContainer: {
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: 'rgba(64,224,255,0.10)',
     borderRadius: BorderRadius.full,
     padding: Spacing.sm,
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.20)',
   },
   favName: {
     fontSize: FontSize.sm,
@@ -1115,27 +1304,37 @@ const styles = StyleSheet.create({
   },
   railTagline: {
     fontSize: FontSize.xs,
-    color: Colors.primary,
+    color: Colors.electricCyan,
     fontWeight: FontWeight.semibold,
     marginTop: 1,
     letterSpacing: 0.2,
+    opacity: 0.85,
   },
   liveDataRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  // Rail Engine Feature Strip
+  // Rail Engine Strip — Neomorphic
   railEngineStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.neomorphicBg,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.sm,
     marginBottom: Spacing.lg,
-    ...Shadow.sm,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.glassBorder,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+    ...Shadow.sm,
+  },
+  neomorphicIcon: {
+    shadowColor: '#000',
+    shadowOpacity: 0.7,
+    shadowRadius: 6,
+    shadowOffset: { width: 2, height: 2 },
+    elevation: 4,
+    borderTopColor: 'rgba(255,255,255,0.06)',
   },
   railEngineItem: {
     flex: 1,
@@ -1148,6 +1347,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: Colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
   },
   railLineDot: {
     width: 10,
@@ -1164,13 +1366,37 @@ const styles = StyleSheet.create({
   railEngineDiv: {
     width: 1,
     height: 28,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: Colors.glassBorder,
   },
-  lineStatusCard: { marginBottom: Spacing.sm },
+  // Line Status Cards — Glass Panels with Neon Glow
+  lineStatusCard: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.sm,
+    overflow: 'hidden',
+    borderWidth: 1,
+    padding: Spacing.md,
+    gap: Spacing.md,
+    alignItems: 'center',
+    elevation: 8,
+  },
+  lineStatusGlow: {
+    width: 4,
+    height: '100%',
+    borderRadius: 2,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    opacity: 0.9,
+  },
   lineStatusRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+    paddingLeft: Spacing.sm,
   },
   lineStatusName: {
     fontSize: FontSize.md,
@@ -1181,6 +1407,20 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     fontWeight: FontWeight.medium,
     marginTop: 1,
+  },
+  lineStatusGlowDot: {
+    width: 10,
+    height: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lineGlowCore: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
   },
   // FAB
   fabContainer: {
@@ -1195,6 +1435,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   fabOverlay: {
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
 });

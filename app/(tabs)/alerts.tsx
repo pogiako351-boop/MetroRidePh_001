@@ -53,11 +53,11 @@ export default function AlertsScreen() {
   const getSeverityConfig = (severity: string) => {
     switch (severity) {
       case 'critical':
-        return { color: Colors.error, bg: '#FCE8E6', icon: 'alert-circle' as const };
+        return { color: Colors.error, bg: 'rgba(255,68,68,0.10)', icon: 'alert-circle' as const };
       case 'warning':
-        return { color: '#E37400', bg: '#FEF7E0', icon: 'warning' as const };
+        return { color: Colors.warning, bg: 'rgba(255,184,0,0.08)', icon: 'warning' as const };
       default:
-        return { color: Colors.info, bg: '#E8F0FE', icon: 'information-circle' as const };
+        return { color: Colors.info, bg: 'rgba(64,224,255,0.08)', icon: 'information-circle' as const };
     }
   };
 
@@ -114,7 +114,7 @@ export default function AlertsScreen() {
           <Ionicons
             name="notifications"
             size={16}
-            color={activeTab === 'alerts' ? Colors.textOnPrimary : Colors.textSecondary}
+            color={activeTab === 'alerts' ? Colors.electricCyan : Colors.textSecondary}
           />
           <Text
             style={[styles.tabText, activeTab === 'alerts' && styles.tabTextActive]}
@@ -129,7 +129,7 @@ export default function AlertsScreen() {
           <Ionicons
             name="people"
             size={16}
-            color={activeTab === 'crowd' ? Colors.textOnPrimary : Colors.textSecondary}
+            color={activeTab === 'crowd' ? Colors.electricCyan : Colors.textSecondary}
           />
           <Text
             style={[styles.tabText, activeTab === 'crowd' && styles.tabTextActive]}
@@ -308,6 +308,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     padding: 4,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
     ...Shadow.sm,
   },
   tab: {
@@ -320,7 +322,9 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   tabActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: 'rgba(64,224,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.25)',
   },
   tabText: {
     fontSize: FontSize.sm,
@@ -328,7 +332,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   tabTextActive: {
-    color: Colors.textOnPrimary,
+    color: Colors.electricCyan,
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,

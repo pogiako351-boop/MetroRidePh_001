@@ -25,9 +25,8 @@ import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '@/utils
 import { useTransitDataSync } from '@/utils/transitDataSync';
 import LiveDataBadge from '@/components/ui/LiveDataBadge';
 
-// ── Memory management constants ───────────────────────────────────────────
-const MAX_CHAT_MESSAGES = 50;   // Keep last 50 messages max
-const MAX_CONTEXT_MESSAGES = 10; // Only last 10 sent to AI for context window efficiency
+const MAX_CHAT_MESSAGES = 50;
+const MAX_CONTEXT_MESSAGES = 10;
 
 interface ChatMessage {
   id: string;
@@ -121,16 +120,21 @@ export default function MetroAIScreen() {
   const [isPremium] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingInstance, setRecordingInstance] = useState<Audio.Recording | null>(null);
+  const [scanningImageId, setScanningImageId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
   const micPulseAnim = useRef(new RNAnimated.Value(1)).current;
   const micPulseLoop = useRef<RNAnimated.CompositeAnimation | null>(null);
+  // Electric Cyan breathing pulse on AI logo
+  const aiBreathAnim = useRef(new RNAnimated.Value(1)).current;
+  const aiBreathLoop = useRef<RNAnimated.CompositeAnimation | null>(null);
+  // Laser scan anim for images
+  const laserAnim = useRef(new RNAnimated.Value(0)).current;
 
   const { generateText, isLoading: isGenerating } = useTextGeneration();
   const { analyzeImage, isLoading: isAnalyzing } = useImageAnalysis();
   const { transcribeAudio, isLoading: isTranscribing } = useAudioTranscription();
 
-  // Background cloud sync for live data indicator
   const { isLiveData } = useTransitDataSync();
 
   const isLoading = isGenerating || isAnalyzing || isTranscribing;
@@ -145,24 +149,36 @@ export default function MetroAIScreen() {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
-  // ── Memory cleanup: trim messages to MAX_CHAT_MESSAGES ─────────────────
   useEffect(() => {
     setMessages((prev) => {
       if (prev.length <= MAX_CHAT_MESSAGES) return prev;
-      // Always keep the welcome message + latest messages
       const welcome = prev[0];
       const rest = prev.slice(-(MAX_CHAT_MESSAGES - 1));
       return [welcome, ...rest];
     });
   }, [messages.length]);
 
-  // Start mic pulse animation when recording
+  // AI logo Electric Cyan breathing pulse — always running
+  useEffect(() => {
+    aiBreathLoop.current = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(aiBreathAnim, { toValue: 1.18, duration: 1800, useNativeDriver: true }),
+        RNAnimated.timing(aiBreathAnim, { toValue: 1, duration: 1800, useNativeDriver: true }),
+      ])
+    );
+    aiBreathLoop.current.start();
+    return () => {
+      aiBreathLoop.current?.stop();
+    };
+  }, [aiBreathAnim]);
+
+  // Mic pulse on recording
   useEffect(() => {
     if (isRecording) {
       micPulseLoop.current = RNAnimated.loop(
         RNAnimated.sequence([
-          RNAnimated.timing(micPulseAnim, { toValue: 1.25, duration: 600, useNativeDriver: true }),
-          RNAnimated.timing(micPulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+          RNAnimated.timing(micPulseAnim, { toValue: 1.3, duration: 500, useNativeDriver: true }),
+          RNAnimated.timing(micPulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
         ])
       );
       micPulseLoop.current.start();
@@ -172,7 +188,18 @@ export default function MetroAIScreen() {
     }
   }, [isRecording, micPulseAnim]);
 
-  // Build trimmed conversation history for AI context (last MAX_CONTEXT_MESSAGES only)
+  // Laser scan loop
+  useEffect(() => {
+    if (scanningImageId) {
+      laserAnim.setValue(0);
+      RNAnimated.loop(
+        RNAnimated.timing(laserAnim, { toValue: 1, duration: 1400, useNativeDriver: true })
+      ).start();
+    } else {
+      laserAnim.setValue(0);
+    }
+  }, [scanningImageId, laserAnim]);
+
   const buildContextHistory = useCallback((msgList: ChatMessage[]) => {
     const contextMsgs = msgList
       .filter((m) => m.role === 'user' || m.role === 'assistant')
@@ -197,7 +224,6 @@ export default function MetroAIScreen() {
       setMessages((prev) => [...prev, userMsg]);
       setInputText('');
 
-      // Use trimmed context history for memory efficiency
       const trimmedHistory = buildContextHistory(messages);
       const liveDataNote = isLiveData ? '\n[Live Cloud Data: Active — fare matrix and station data is up to date from cloud sync]' : '';
       const fullPrompt = `${SYSTEM_CONTEXT}${liveDataNote}\n\nConversation history:\n${trimmedHistory}\n\nUser: ${text.trim()}\n\nAssistant:`;
@@ -231,23 +257,15 @@ export default function MetroAIScreen() {
     [isLoading, generateText, buildContextHistory, isLiveData, messages]
   );
 
-  // ── Voice Recording ────────────────────────────────────────────────────────
   const startRecording = useCallback(async () => {
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Microphone Permission',
-          'Please allow microphone access to use voice queries.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('Microphone Permission', 'Please allow microphone access to use voice queries.', [{ text: 'OK' }]);
         return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
 
       const recording = new Audio.Recording();
       await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
@@ -275,7 +293,6 @@ export default function MetroAIScreen() {
         return;
       }
 
-      // Add a "transcribing" indicator message
       const voiceMsg: ChatMessage = {
         id: Date.now().toString(),
         role: 'user',
@@ -285,30 +302,19 @@ export default function MetroAIScreen() {
       };
       setMessages((prev) => [...prev, voiceMsg]);
 
-      // Transcribe
       const transcript = await transcribeAudio({ audioUri: uri, language: 'en' });
 
       if (!transcript || !transcript.trim()) {
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === voiceMsg.id
-              ? { ...m, content: '🎤 Could not understand audio. Please try again.' }
-              : m
-          )
+          prev.map((m) => m.id === voiceMsg.id ? { ...m, content: '🎤 Could not understand audio. Please try again.' } : m)
         );
         return;
       }
 
-      // Update voice message to show transcribed text
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === voiceMsg.id
-            ? { ...m, content: `🎤 "${transcript}"` }
-            : m
-        )
+        prev.map((m) => m.id === voiceMsg.id ? { ...m, content: `🎤 "${transcript}"` } : m)
       );
 
-      // Send transcribed text to AI
       const fullPrompt = `${SYSTEM_CONTEXT}\n\nConversation history:\n${conversationHistory}\n\nUser: ${transcript.trim()}\n\nAssistant:`;
       const response = await generateText(fullPrompt);
       const aiResponse = response ?? 'Sorry, I could not respond. Please try again.';
@@ -344,7 +350,6 @@ export default function MetroAIScreen() {
     }
   }, [isRecording, startRecording, stopRecording]);
 
-  // ── Image Upload ───────────────────────────────────────────────────────────
   const handleImageUpload = useCallback(async () => {
     if (!isPremium) {
       Alert.alert(
@@ -360,7 +365,7 @@ export default function MetroAIScreen() {
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission Required', 'Please allow access to your photo library to use Vision Analysis.');
+      Alert.alert('Permission Required', 'Please allow access to your photo library.');
       return;
     }
 
@@ -372,22 +377,24 @@ export default function MetroAIScreen() {
 
     if (result.canceled || !result.assets[0]) return;
     const imageUri = result.assets[0].uri;
+    const msgId = Date.now().toString();
 
     const userMsg: ChatMessage = {
-      id: Date.now().toString(),
+      id: msgId,
       role: 'user',
       content: '📸 Analyzing this station image...',
       imageUri,
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMsg]);
+    setScanningImageId(msgId);
 
     try {
       const response = await analyzeImage({
         imageUrl: imageUri,
-        prompt:
-          'Analyze this Philippine metro station image. Identify: 1) Crowd density (light/moderate/heavy with percentage estimate), 2) Any visible delays or issues (broken elevators, long lines, technical problems), 3) Overall station status, 4) Recommendations for commuters. Be concise and actionable.',
+        prompt: 'Analyze this Philippine metro station image. Identify: 1) Crowd density (light/moderate/heavy with percentage estimate), 2) Any visible delays or issues (broken elevators, long lines, technical problems), 3) Overall station status, 4) Recommendations for commuters. Be concise and actionable.',
       });
+      setScanningImageId(null);
 
       const aiText = response ?? 'Could not analyze the image. Please try again.';
       const aiMsg: ChatMessage = {
@@ -399,6 +406,7 @@ export default function MetroAIScreen() {
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch {
+      setScanningImageId(null);
       const errMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -431,22 +439,24 @@ export default function MetroAIScreen() {
     const result = await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: true });
     if (result.canceled || !result.assets[0]) return;
     const imageUri = result.assets[0].uri;
+    const msgId = Date.now().toString();
 
     const userMsg: ChatMessage = {
-      id: Date.now().toString(),
+      id: msgId,
       role: 'user',
       content: '📷 Analyzing live station photo...',
       imageUri,
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMsg]);
+    setScanningImageId(msgId);
 
     try {
       const response = await analyzeImage({
         imageUrl: imageUri,
-        prompt:
-          'Analyze this live Philippine metro station photo. Assess: 1) Crowd density and wait time estimate, 2) Any visible issues or delays, 3) Safety observations, 4) Quick recommendation for this commuter. Keep it brief and practical.',
+        prompt: 'Analyze this live Philippine metro station photo. Assess: 1) Crowd density and wait time estimate, 2) Any visible issues or delays, 3) Safety observations, 4) Quick recommendation for this commuter. Keep it brief and practical.',
       });
+      setScanningImageId(null);
 
       const aiText = response ?? 'Could not analyze the image.';
       const aiMsg: ChatMessage = {
@@ -458,6 +468,7 @@ export default function MetroAIScreen() {
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch {
+      setScanningImageId(null);
       const errMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -468,32 +479,81 @@ export default function MetroAIScreen() {
     }
   }, [isPremium, analyzeImage, router]);
 
+  const laserY = laserAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 140],
+  });
+
   const renderMessage = useCallback(
-    ({ item, index }: { item: ChatMessage; index: number }) => {
+    ({ item }: { item: ChatMessage }) => {
       const isUser = item.role === 'user';
+      const isScanning = item.id === scanningImageId;
+
       return (
         <Animated.View
           entering={isUser ? FadeInLeft.duration(300) : FadeInUp.duration(300).delay(50)}
           style={[styles.messageRow, isUser ? styles.userRow : styles.aiRow]}
         >
           {!isUser && (
-            <View style={styles.aiAvatar}>
-              <Text style={styles.aiAvatarText}>AI</Text>
-            </View>
+            // AI Avatar with Electric Cyan breathing pulse
+            <RNAnimated.View
+              style={[
+                styles.aiAvatarWrapper,
+                { transform: [{ scale: aiBreathAnim }] },
+              ]}
+            >
+              <View style={styles.aiAvatar}>
+                <Text style={styles.aiAvatarText}>AI</Text>
+              </View>
+              {/* Breathing ring */}
+              <RNAnimated.View
+                style={[
+                  styles.aiBreathRing,
+                  {
+                    transform: [{ scale: aiBreathAnim }],
+                    opacity: aiBreathAnim.interpolate({
+                      inputRange: [1, 1.18],
+                      outputRange: [0.5, 0],
+                    }),
+                  },
+                ]}
+              />
+            </RNAnimated.View>
           )}
           <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
             {item.imageUri && (
-              <Image source={{ uri: item.imageUri }} style={styles.messageImage} resizeMode="cover" />
+              <View style={styles.imageContainer}>
+                <Image source={{ uri: item.imageUri }} style={styles.messageImage} resizeMode="cover" />
+                {/* Laser scan animation */}
+                {isScanning && (
+                  <RNAnimated.View
+                    style={[
+                      styles.laserScan,
+                      { transform: [{ translateY: laserY }] },
+                    ]}
+                    pointerEvents="none"
+                  />
+                )}
+                {isScanning && (
+                  <View style={styles.scanOverlay} pointerEvents="none">
+                    <View style={styles.scanCornerTL} />
+                    <View style={styles.scanCornerTR} />
+                    <View style={styles.scanCornerBL} />
+                    <View style={styles.scanCornerBR} />
+                    <Text style={styles.scanText}>SCANNING</Text>
+                  </View>
+                )}
+              </View>
             )}
             {item.isVisionAnalysis && (
               <View style={styles.visionBadge}>
-                <Ionicons name="eye-outline" size={12} color={Colors.violet} />
+                <Ionicons name="eye-outline" size={12} color={Colors.electricCyan} />
                 <Text style={styles.visionBadgeText}>Vision Analysis</Text>
               </View>
             )}
             {item.isVoice && (
               <View style={styles.voiceBadge}>
-                <Ionicons name="mic" size={12} color={Colors.primary} />
+                <Ionicons name="mic" size={12} color={Colors.electricCyan} />
                 <Text style={styles.voiceBadgeText}>Voice Query</Text>
               </View>
             )}
@@ -507,7 +567,7 @@ export default function MetroAIScreen() {
         </Animated.View>
       );
     },
-    []
+    [scanningImageId, laserY, aiBreathAnim]
   );
 
   return (
@@ -518,8 +578,28 @@ export default function MetroAIScreen() {
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </Pressable>
         <View style={styles.headerCenter}>
-          <View style={styles.aiIndicator}>
-            <View style={styles.aiDot} />
+          {/* AI Logo with Electric Cyan breathing pulse */}
+          <View style={styles.aiLogoWrapper}>
+            <RNAnimated.View
+              style={[
+                styles.aiLogoPulseOuter,
+                {
+                  transform: [{ scale: aiBreathAnim }],
+                  opacity: aiBreathAnim.interpolate({
+                    inputRange: [1, 1.18],
+                    outputRange: [0.4, 0],
+                  }),
+                },
+              ]}
+            />
+            <View style={styles.aiLogoInner}>
+              <RNAnimated.View
+                style={[
+                  styles.aiLogoDot,
+                  { transform: [{ scale: aiBreathAnim }] },
+                ]}
+              />
+            </View>
           </View>
           <View>
             <View style={styles.headerTitleRow}>
@@ -530,7 +610,7 @@ export default function MetroAIScreen() {
           </View>
         </View>
         <Pressable onPress={() => router.push('/premium')} style={styles.premiumBtn}>
-          <Ionicons name="diamond-outline" size={20} color={Colors.violet} />
+          <Ionicons name="diamond-outline" size={20} color={Colors.electricCyan} />
         </Pressable>
       </View>
 
@@ -567,7 +647,7 @@ export default function MetroAIScreen() {
       {/* Transcribing Banner */}
       {isTranscribing && (
         <Animated.View entering={FadeInUp.duration(200)} style={styles.transcribingBanner}>
-          <Ionicons name="hourglass-outline" size={16} color={Colors.violet} />
+          <Ionicons name="hourglass-outline" size={16} color={Colors.electricCyan} />
           <Text style={styles.transcribingText}>Transcribing audio...</Text>
         </Animated.View>
       )}
@@ -591,12 +671,12 @@ export default function MetroAIScreen() {
 
         {/* Vision teaser */}
         <View style={styles.visionTeaser}>
-          <Ionicons name="eye-outline" size={14} color={Colors.violet} />
+          <Ionicons name="eye-outline" size={14} color={Colors.electricCyan} />
           <Text style={styles.visionTeaserText}>
             Vision Analysis: Upload station photos for crowd & delay detection
           </Text>
           <Pressable onPress={() => router.push('/premium')} style={styles.visionLock}>
-            <Ionicons name="lock-closed" size={12} color={Colors.violet} />
+            <Ionicons name="lock-closed" size={12} color={Colors.electricCyan} />
             <Text style={styles.visionLockText}>Premium</Text>
           </Pressable>
         </View>
@@ -604,10 +684,10 @@ export default function MetroAIScreen() {
         {/* Input Bar */}
         <View style={[styles.inputBar, { paddingBottom: insets.bottom + Spacing.sm }]}>
           <Pressable onPress={handleCamera} style={styles.inputAction}>
-            <Ionicons name="camera-outline" size={22} color={Colors.violet} />
+            <Ionicons name="camera-outline" size={22} color={Colors.electricCyan} />
           </Pressable>
           <Pressable onPress={handleImageUpload} style={styles.inputAction}>
-            <Ionicons name="image-outline" size={22} color={Colors.violet} />
+            <Ionicons name="image-outline" size={22} color={Colors.electricCyan} />
           </Pressable>
 
           <View style={styles.textInputWrapper}>
@@ -657,7 +737,7 @@ export default function MetroAIScreen() {
             <Ionicons
               name={isGenerating ? 'hourglass-outline' : 'send'}
               size={18}
-              color="#FFFFFF"
+              color="#08090A"
             />
           </Pressable>
         </View>
@@ -669,16 +749,16 @@ export default function MetroAIScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F0FF',
+    backgroundColor: Colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: 'rgba(13,14,16,0.95)',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: Colors.glassBorder,
     ...Shadow.sm,
   },
   backBtn: {
@@ -692,19 +772,39 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginLeft: Spacing.sm,
   },
-  aiIndicator: {
+  // AI logo with Electric Cyan breathing pulse
+  aiLogoWrapper: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiLogoPulseOuter: {
+    position: 'absolute',
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.violetLight,
+    backgroundColor: Colors.electricCyan,
+  },
+  aiLogoInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(64,224,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  aiDot: {
+  aiLogoDot: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: Colors.violet,
+    backgroundColor: Colors.electricCyan,
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 8,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -718,8 +818,9 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: FontSize.xs,
-    color: Colors.violet,
+    color: Colors.electricCyan,
     fontWeight: FontWeight.medium,
+    opacity: 0.8,
   },
   premiumBtn: {
     padding: Spacing.sm,
@@ -730,33 +831,37 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   quickPromptChip: {
-    backgroundColor: Colors.violetLight,
+    backgroundColor: 'rgba(187,68,255,0.12)',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: Colors.violet + '40',
+    borderColor: 'rgba(187,68,255,0.25)',
   },
   quickPromptText: {
     fontSize: FontSize.sm,
-    color: Colors.violetDark,
+    color: Colors.lrt2,
     fontWeight: FontWeight.medium,
   },
   recordingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: 'rgba(255,68,68,0.08)',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.error + '30',
+    borderBottomColor: 'rgba(255,68,68,0.20)',
   },
   recordingDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
     backgroundColor: Colors.error,
+    shadowColor: Colors.error,
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
   },
   recordingText: {
     flex: 1,
@@ -771,13 +876,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.violetLight,
+    backgroundColor: 'rgba(64,224,255,0.06)',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(64,224,255,0.15)',
   },
   transcribingText: {
     fontSize: FontSize.sm,
-    color: Colors.violet,
+    color: Colors.electricCyan,
     fontWeight: FontWeight.medium,
   },
   messagesList: {
@@ -797,71 +904,173 @@ const styles = StyleSheet.create({
   aiRow: {
     alignSelf: 'flex-start',
   },
+  // AI Avatar with breathing ring
+  aiAvatarWrapper: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.sm,
+    alignSelf: 'flex-end',
+  },
   aiAvatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.violet,
+    backgroundColor: 'rgba(64,224,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.35)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Spacing.sm,
-    alignSelf: 'flex-end',
+    zIndex: 2,
+  },
+  aiBreathRing: {
+    position: 'absolute',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: Colors.electricCyan,
   },
   aiAvatarText: {
     fontSize: FontSize.xs,
     fontWeight: FontWeight.bold,
-    color: '#FFFFFF',
+    color: Colors.electricCyan,
   },
   messageBubble: {
     borderRadius: BorderRadius.xl,
     padding: Spacing.md,
     maxWidth: '100%',
-    ...Shadow.sm,
+    borderWidth: 1,
   },
   userBubble: {
-    backgroundColor: Colors.violet,
+    backgroundColor: 'rgba(187,68,255,0.18)',
     borderBottomRightRadius: 6,
+    borderColor: 'rgba(187,68,255,0.30)',
+    shadowColor: Colors.lrt2,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   aiBubble: {
-    backgroundColor: Colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderBottomLeftRadius: 6,
+    borderColor: Colors.glassBorder,
+    ...Shadow.sm,
+  },
+  // Image container with laser scan
+  imageContainer: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
   },
   messageImage: {
     width: 200,
     height: 140,
     borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
+  },
+  laserScan: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: Colors.electricCyan,
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  scanOverlay: {
+    position: 'absolute',
+    inset: 0,
+    borderWidth: 1.5,
+    borderColor: Colors.electricCyan,
+    borderRadius: BorderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(64,224,255,0.04)',
+  },
+  scanCornerTL: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 16,
+    height: 16,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: Colors.electricCyan,
+  },
+  scanCornerTR: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderColor: Colors.electricCyan,
+  },
+  scanCornerBL: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    width: 16,
+    height: 16,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: Colors.electricCyan,
+  },
+  scanCornerBR: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderColor: Colors.electricCyan,
+  },
+  scanText: {
+    fontSize: 9,
+    fontWeight: FontWeight.heavy,
+    color: Colors.electricCyan,
+    letterSpacing: 2,
   },
   visionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.violetLight,
+    backgroundColor: 'rgba(64,224,255,0.10)',
     borderRadius: BorderRadius.sm,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginBottom: Spacing.sm,
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.20)',
   },
   visionBadgeText: {
     fontSize: FontSize.xs,
-    color: Colors.violet,
+    color: Colors.electricCyan,
     fontWeight: FontWeight.semibold,
   },
   voiceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: 'rgba(64,224,255,0.08)',
     borderRadius: BorderRadius.sm,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginBottom: Spacing.sm,
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.18)',
   },
   voiceBadgeText: {
     fontSize: FontSize.xs,
-    color: Colors.primary,
+    color: Colors.electricCyan,
     fontWeight: FontWeight.semibold,
   },
   messageText: {
@@ -869,10 +1078,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   userMessageText: {
-    color: '#FFFFFF',
+    color: Colors.text,
   },
   aiMessageText: {
     color: Colors.text,
+    opacity: 0.9,
   },
   timestamp: {
     fontSize: FontSize.xs,
@@ -881,35 +1091,37 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   userTimestamp: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.4)',
   },
   visionTeaser: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.violetLight,
+    backgroundColor: 'rgba(64,224,255,0.06)',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.violet + '20',
+    borderTopColor: 'rgba(64,224,255,0.12)',
   },
   visionTeaserText: {
     flex: 1,
     fontSize: FontSize.xs,
-    color: Colors.violetDark,
+    color: Colors.textSecondary,
   },
   visionLock: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: Colors.violet + '20',
+    backgroundColor: 'rgba(64,224,255,0.10)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.20)',
   },
   visionLockText: {
     fontSize: FontSize.xs,
-    color: Colors.violet,
+    color: Colors.electricCyan,
     fontWeight: FontWeight.semibold,
   },
   inputBar: {
@@ -918,26 +1130,28 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: 'rgba(13,14,16,0.95)',
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: Colors.glassBorder,
   },
   inputAction: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.violetLight,
+    backgroundColor: 'rgba(64,224,255,0.08)',
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.18)',
   },
   textInputWrapper: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.xl,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.glassBorder,
     minHeight: 40,
     maxHeight: 100,
     justifyContent: 'center',
@@ -951,25 +1165,36 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.electricCyan,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
   },
   micBtnActive: {
     backgroundColor: Colors.error,
+    shadowColor: Colors.error,
   },
   micBtnDisabled: {
-    backgroundColor: Colors.border,
+    backgroundColor: Colors.surfaceElevated,
+    shadowOpacity: 0,
   },
   sendBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.violet,
+    backgroundColor: Colors.electricCyan,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
   },
   sendBtnDisabled: {
-    backgroundColor: Colors.border,
+    backgroundColor: Colors.surfaceElevated,
+    shadowOpacity: 0,
   },
 });

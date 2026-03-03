@@ -125,7 +125,7 @@ export default function SettingsScreen() {
         {/* Notification Quiet Hours */}
         <Animated.View entering={FadeInDown.duration(500).delay(100)} style={styles.section}>
           <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIcon, { backgroundColor: '#EDE9FE' }]}>
+            <View style={[styles.sectionIcon, { backgroundColor: 'rgba(187,68,255,0.12)' }]}>
               <Ionicons name="moon" size={18} color={Colors.violet} />
             </View>
             <View style={styles.sectionTitleBlock}>
@@ -387,7 +387,7 @@ export default function SettingsScreen() {
           <Text style={styles.appVersion}>v3.0 · 2026 Rail Fare Engine · Live Cloud Sync</Text>
           <View style={styles.lineBadgeStrip}>
             <View style={[styles.lineBadge, { borderColor: 'rgba(245,197,0,0.4)', backgroundColor: 'rgba(245,197,0,0.08)' }]}>
-              <View style={[styles.lineBadgeDot, { backgroundColor: '#F5C500' }]} />
+              <View style={[styles.lineBadgeDot, { backgroundColor: '#FFE600' }]} />
               <Text style={[styles.lineBadgeText, { color: '#B8900A' }]}>LRT-1</Text>
             </View>
             <View style={[styles.lineBadge, { borderColor: 'rgba(17,67,168,0.4)', backgroundColor: 'rgba(17,67,168,0.08)' }]}>

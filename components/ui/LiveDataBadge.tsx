@@ -5,13 +5,13 @@ interface LiveDataBadgeProps {
   visible?: boolean;
   lastSync?: Date | null;
   compact?: boolean;
+  supabaseMode?: boolean;
 }
 
-export default function LiveDataBadge({ visible = true, lastSync, compact = false }: LiveDataBadgeProps) {
+export default function LiveDataBadge({ visible = true, lastSync, compact = false, supabaseMode = false }: LiveDataBadgeProps) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  // Fade in when visible
   useEffect(() => {
     Animated.timing(opacityAnim, {
       toValue: visible ? 1 : 0,
@@ -20,19 +20,18 @@ export default function LiveDataBadge({ visible = true, lastSync, compact = fals
     }).start();
   }, [visible, opacityAnim]);
 
-  // Infinite pulsating dot
   useEffect(() => {
     if (!visible) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.5,
-          duration: 700,
+          toValue: 1.6,
+          duration: 900,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 700,
+          duration: 900,
           useNativeDriver: true,
         }),
       ]),
@@ -50,28 +49,31 @@ export default function LiveDataBadge({ visible = true, lastSync, compact = fals
     return `${Math.floor(diff / 3600)}h ago`;
   };
 
+  const dotColor = supabaseMode ? '#3ECF8E' : '#22C55E';
+
   return (
     <Animated.View style={[styles.container, compact && styles.compact, { opacity: opacityAnim }]}>
-      {/* Pulsating dot */}
       <View style={styles.dotWrapper}>
         <Animated.View
           style={[
             styles.dotRing,
             {
+              backgroundColor: dotColor,
               transform: [{ scale: pulseAnim }],
               opacity: pulseAnim.interpolate({
-                inputRange: [1, 1.5],
-                outputRange: [0.4, 0],
+                inputRange: [1, 1.6],
+                outputRange: [0.35, 0],
               }),
             },
           ]}
         />
-        <View style={styles.dotCore} />
+        <View style={[styles.dotCore, { backgroundColor: dotColor }]} />
       </View>
-
-      <Text style={[styles.label, compact && styles.labelCompact]}>Live Data</Text>
+      <Text style={[styles.label, compact && styles.labelCompact, { color: dotColor }]}>
+        {supabaseMode ? 'Verified via Supabase' : 'Live Data'}
+      </Text>
       {!compact && lastSync && (
-        <Text style={styles.sub}>Synced {formatSync(lastSync)}</Text>
+        <Text style={[styles.sub, { color: dotColor + 'AA' }]}>Synced {formatSync(lastSync)}</Text>
       )}
     </Animated.View>
   );
@@ -81,9 +83,9 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(52, 168, 83, 0.12)',
+    backgroundColor: 'rgba(62,207,142,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(52, 168, 83, 0.3)',
+    borderColor: 'rgba(62,207,142,0.25)',
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -105,18 +107,15 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#34A853',
   },
   dotCore: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#34A853',
   },
   label: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#34A853',
     letterSpacing: 0.3,
   },
   labelCompact: {
@@ -124,7 +123,6 @@ const styles = StyleSheet.create({
   },
   sub: {
     fontSize: 10,
-    color: 'rgba(52, 168, 83, 0.7)',
     fontWeight: '400',
   },
 });

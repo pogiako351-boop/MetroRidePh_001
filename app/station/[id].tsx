@@ -216,7 +216,7 @@ export default function StationDetailScreen() {
             {station.exits.map((exit, i) => (
               <View key={i} style={[styles.exitRow, i > 0 && styles.exitRowBorder]}>
                 <View style={styles.exitIcon}>
-                  <Ionicons name="exit-outline" size={16} color={Colors.primary} />
+                  <Ionicons name="exit-outline" size={16} color={Colors.neonLime} />
                 </View>
                 <Text style={styles.exitText}>{exit}</Text>
               </View>
@@ -314,7 +314,9 @@ const styles = StyleSheet.create({
     ...Shadow.sm,
   },
   favActive: {
-    backgroundColor: '#FCE8E6',
+    backgroundColor: 'rgba(255,68,68,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,68,68,0.20)',
   },
   heroSection: {
     marginBottom: Spacing.xl,
@@ -329,7 +331,7 @@ const styles = StyleSheet.create({
   lineTagText: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.bold,
-    color: Colors.textOnPrimary,
+    color: '#08090A',
   },
   stationTitle: {
     fontSize: FontSize.display,
@@ -371,8 +373,8 @@ const styles = StyleSheet.create({
   transferCard: {
     marginBottom: Spacing.xl,
     borderWidth: 1,
-    borderColor: Colors.primarySoft,
-    backgroundColor: '#F8FBFF',
+    borderColor: 'rgba(64,224,255,0.20)',
+    backgroundColor: 'rgba(64,224,255,0.05)',
   },
   transferHeader: {
     flexDirection: 'row',
@@ -422,9 +424,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: 'rgba(182,255,59,0.10)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(182,255,59,0.20)',
   },
   exitText: {
     flex: 1,
@@ -457,9 +461,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: 'rgba(64,224,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.15)',
   },
   placeName: {
     fontSize: FontSize.md,

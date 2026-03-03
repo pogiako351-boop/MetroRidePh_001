@@ -58,9 +58,9 @@ const TRANSFER_RADIUS = 10;
 
 type LineId = 'MRT-3' | 'LRT-1' | 'LRT-2';
 const LINE_COLORS: Record<LineId, string> = {
-  'MRT-3': '#1A73E8',
-  'LRT-1': '#34A853',
-  'LRT-2': '#9C27B0',
+  'MRT-3': '#4499FF',    // Neon Blue
+  'LRT-1': '#FFE600',    // Neon Yellow
+  'LRT-2': '#BB44FF',    // Neon Violet
 };
 
 const ACTIVE_ROUTE_KEY = '@metroride_active_map_route';
@@ -240,8 +240,8 @@ export default function TransitMapScreen() {
             cx={pos.x}
             cy={pos.y}
             r={r}
-            fill={isSelected ? Colors.amber : '#FFFFFF'}
-            stroke={isActive ? Colors.amber : color}
+            fill={isSelected ? Colors.neonLime : '#0D0E10'}
+            stroke={isActive ? Colors.neonLime : color}
             strokeWidth={isActive ? 3 : 2.5}
             onPress={() => handleStationPress(station)}
           />
@@ -256,7 +256,7 @@ export default function TransitMapScreen() {
               y={pos.y + 4}
               fontSize={9}
               fontWeight={isSelected ? 'bold' : '500'}
-              fill={isSelected ? Colors.amber : Colors.text}
+              fill={isSelected ? Colors.neonLime : 'rgba(255,255,255,0.85)'}
             >
               {station.name.length > 14
                 ? station.name.substring(0, 12) + '…'
@@ -322,10 +322,9 @@ export default function TransitMapScreen() {
                 height={MAP_HEIGHT}
                 viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
               >
-                {/* Background */}
-                <Rect x={0} y={0} width={MAP_WIDTH} height={MAP_HEIGHT} fill="#F0F4FF" rx={12} />
-
-                {/* Grid lines for aesthetics */}
+                {/* Dark Onyx Background */}
+                <Rect x={0} y={0} width={MAP_WIDTH} height={MAP_HEIGHT} fill="#08090A" rx={12} />
+                {/* Subtle mesh grid */}
                 {Array.from({ length: 10 }).map((_, i) => (
                   <Line
                     key={`hgrid-${i}`}
@@ -333,8 +332,8 @@ export default function TransitMapScreen() {
                     y1={i * 80}
                     x2={MAP_WIDTH}
                     y2={i * 80}
-                    stroke="#E0E8FF"
-                    strokeWidth={0.5}
+                    stroke="rgba(255,255,255,0.04)"
+                    strokeWidth={0.8}
                   />
                 ))}
                 {Array.from({ length: 9 }).map((_, i) => (
@@ -344,8 +343,8 @@ export default function TransitMapScreen() {
                     y1={0}
                     x2={i * 80}
                     y2={MAP_HEIGHT}
-                    stroke="#E0E8FF"
-                    strokeWidth={0.5}
+                    stroke="rgba(255,255,255,0.04)"
+                    strokeWidth={0.8}
                   />
                 ))}
 
@@ -484,16 +483,16 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: Colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: 'rgba(13,14,16,0.95)',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: Colors.glassBorder,
     ...Shadow.sm,
   },
   backBtn: {
@@ -513,13 +512,15 @@ const styles = StyleSheet.create({
   resetBtn: {
     marginLeft: 'auto',
     padding: Spacing.sm,
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: 'rgba(64,224,255,0.10)',
     borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.20)',
   },
   mapContainer: {
     flex: 1,
     overflow: 'hidden',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: Colors.background,
   },
   mapWrapper: {
     width: MAP_WIDTH,
@@ -529,13 +530,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 80,
     left: Spacing.lg,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: 'rgba(13,14,16,0.90)',
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     gap: Spacing.sm,
-    ...Shadow.sm,
+    ...Shadow.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.glassBorder,
   },
   legendToggle: {
     position: 'absolute',
@@ -572,12 +573,15 @@ const styles = StyleSheet.create({
     bottom: 30,
     left: Spacing.lg,
     right: Spacing.lg,
-    backgroundColor: Colors.surface,
+    backgroundColor: 'rgba(13,14,16,0.95)',
     borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
     ...Shadow.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.glassBorder,
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
   },
   stationCardRow: {
     flexDirection: 'row',
@@ -603,14 +607,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: Colors.amberLight,
+    backgroundColor: 'rgba(255,184,0,0.12)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,184,0,0.25)',
   },
   transferBadgeText: {
     fontSize: FontSize.xs,
-    color: Colors.amberDark,
+    color: Colors.amber,
     fontWeight: FontWeight.semibold,
   },
   cardCloseBtn: {
@@ -640,15 +646,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.neonLime,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
+    shadowColor: Colors.neonLime,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
   },
   viewDetailsBtnText: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.semibold,
-    color: '#FFFFFF',
+    color: '#08090A',
   },
   zoomHints: {
     position: 'absolute',
@@ -660,11 +670,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: 'rgba(13,14,16,0.90)',
     justifyContent: 'center',
     alignItems: 'center',
     ...Shadow.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.glassBorder,
   },
 });

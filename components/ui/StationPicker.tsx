@@ -138,11 +138,15 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
   },
   pickerSelected: {
-    borderColor: Colors.primary,
+    borderColor: 'rgba(64,224,255,0.40)',
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   pickerContent: {
     flex: 1,
@@ -189,12 +193,14 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceElevated,
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
     ...Shadow.sm,
   },
   searchInput: {
@@ -217,7 +223,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   stationItemPressed: {
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: 'rgba(64,224,255,0.06)',
   },
   stationInfo: {
     flex: 1,
@@ -233,8 +239,10 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   transferBadge: {
-    backgroundColor: Colors.primarySoft,
+    backgroundColor: 'rgba(64,224,255,0.10)',
     borderRadius: BorderRadius.full,
     padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.20)',
   },
 });
