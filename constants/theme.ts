@@ -1,82 +1,82 @@
-// ─── Ultra-Dark Premium Edition · Spatial UI Theme ────────────────────────────
+// ─── Standard Light Mode Theme · High-Contrast Accessibility ────────────────
 export const Colors = {
-  // ── Core Backgrounds (Onyx Palette) ──────────────────────────────────────
-  background: '#08090A',          // Onyx base
-  surface: '#0D0E10',             // Glass surface
-  surfaceElevated: '#111215',     // Elevated glass surface
-  surfaceGlass: 'rgba(255,255,255,0.05)',
+  // ── Core Backgrounds (Light Palette) ─────────────────────────────────────
+  background: '#FFFFFF',          // Pure white base
+  surface: '#F8F9FA',             // Off-white surface
+  surfaceElevated: '#F1F3F5',     // Slightly elevated surface
+  surfaceGlass: 'rgba(0,0,0,0.03)',
 
-  // ── Primary Accent (Electric Cyan) ───────────────────────────────────────
-  primary: '#40E0FF',             // Electric Cyan
-  primaryDark: '#00C8E8',
-  primaryLight: '#7AEFFF',
-  primarySoft: 'rgba(64,224,255,0.10)',
+  // ── Primary Accent (Accessible Blue) ─────────────────────────────────────
+  primary: '#0070CC',             // Standard accessible blue
+  primaryDark: '#005BA3',
+  primaryLight: '#3B9FE6',
+  primarySoft: 'rgba(0,112,204,0.10)',
 
   secondary: '#64748B',
 
   // ── Typography ───────────────────────────────────────────────────────────
-  text: '#FFFFFF',                // Pure white for primary values
-  textSecondary: '#64748B',       // Muted slate
-  textTertiary: '#3F4D5C',        // Deep muted
-  textOnPrimary: '#08090A',       // Dark text on bright accents
+  text: '#0A0A0A',                // Near-black for primary text
+  textSecondary: '#4B5563',       // Medium gray
+  textTertiary: '#9CA3AF',        // Muted gray
+  textOnPrimary: '#FFFFFF',       // White text on primary
 
-  // ── Borders (Light-Catcher Effect) ───────────────────────────────────────
-  border: 'rgba(255,255,255,0.10)',      // 1px light-catcher border
-  borderLight: 'rgba(255,255,255,0.06)',
-  divider: 'rgba(255,255,255,0.08)',
+  // ── Borders ───────────────────────────────────────────────────────────────
+  border: 'rgba(0,0,0,0.12)',     // Standard border
+  borderLight: 'rgba(0,0,0,0.06)',
+  divider: 'rgba(0,0,0,0.08)',
 
   // ── Status ────────────────────────────────────────────────────────────────
-  success: '#22C55E',
-  warning: '#FFB800',
-  error: '#FF4444',
-  info: '#40E0FF',
+  success: '#16A34A',
+  warning: '#D97706',
+  error: '#DC2626',
+  info: '#0284C7',
 
   // ── Crowd Levels ──────────────────────────────────────────────────────────
-  crowdLight: '#22C55E',
-  crowdModerate: '#FFB800',
-  crowdHeavy: '#FF4444',
+  crowdLight: '#16A34A',
+  crowdModerate: '#D97706',
+  crowdHeavy: '#DC2626',
 
-  // ── Rail Line Colors (Neon Enhanced) ─────────────────────────────────────
-  mrt3: '#4499FF',      // Neon Blue
-  lrt1: '#FFE600',      // Neon Yellow
-  lrt2: '#BB44FF',      // Neon Violet
+  // ── Rail Line Colors ──────────────────────────────────────────────────────
+  mrt3: '#1D6FE8',      // MRT-3 Blue
+  lrt1: '#D4A017',      // LRT-1 Amber
+  lrt2: '#7C3AED',      // LRT-2 Violet
 
   // ── Shadows & Overlays ───────────────────────────────────────────────────
-  shadow: 'rgba(0,0,0,0.5)',
-  shadowDark: 'rgba(0,0,0,0.8)',
-  overlay: 'rgba(0,0,0,0.75)',
-  shimmer: '#1A1C1F',
+  shadow: 'rgba(0,0,0,0.10)',
+  shadowDark: 'rgba(0,0,0,0.20)',
+  overlay: 'rgba(0,0,0,0.50)',
+  shimmer: '#E5E7EB',
 
   // ── Premium & Special ────────────────────────────────────────────────────
-  gold: '#FFB800',
-  premium: '#40E0FF',
-  premiumGradientStart: '#40E0FF',
-  premiumGradientEnd: '#7B2FFF',
+  gold: '#D97706',
+  premium: '#0070CC',
+  premiumGradientStart: '#0070CC',
+  premiumGradientEnd: '#7C3AED',
 
   // ── AI & Community Accent ────────────────────────────────────────────────
-  violet: '#BB44FF',
-  violetLight: 'rgba(187,68,255,0.15)',
-  violetDark: '#9933DD',
-  amber: '#FFB800',
-  amberLight: 'rgba(255,184,0,0.12)',
-  amberDark: '#CC8800',
+  violet: '#7C3AED',
+  violetLight: 'rgba(124,58,237,0.10)',
+  violetDark: '#5B21B6',
+  amber: '#D97706',
+  amberLight: 'rgba(217,119,6,0.10)',
+  amberDark: '#B45309',
 
-  // ── Dark Glassmorphism ───────────────────────────────────────────────────
-  glass: 'rgba(255,255,255,0.05)',
-  glassBorder: 'rgba(255,255,255,0.10)',
-  glassDark: 'rgba(0,0,0,0.6)',
+  // ── Light Mode Glass ─────────────────────────────────────────────────────
+  glass: 'rgba(255,255,255,0.80)',
+  glassBorder: 'rgba(0,0,0,0.10)',
+  glassDark: 'rgba(0,0,0,0.06)',
 
-  // ── Ultra-Dark Premium Specials ───────────────────────────────────────────
-  neonLime: '#B6FF3B',         // Active line glow / exit markers
-  electricCyan: '#40E0FF',     // Fare scan pulse / AI breathing
-  onyxBase: '#08090A',         // True onyx
-  meshBlue: '#0A1628',         // Deep midnight blue for mesh gradients
-  supabaseGreen: '#3ECF8E',    // Verified via Supabase dot
+  // ── Legacy compatibility (mapped to light equivalents) ────────────────────
+  neonLime: '#65A30D',         // Muted lime
+  electricCyan: '#0284C7',     // Mapped to accessible blue
+  onyxBase: '#FFFFFF',         // Now white
+  meshBlue: '#EFF6FF',         // Light blue tint
+  supabaseGreen: '#16A34A',    // Supabase verified green
 
-  // ── Neomorphic Inset (Action Buttons) ────────────────────────────────────
-  neomorphicBg: '#0A0B0D',
-  neomorphicLight: 'rgba(255,255,255,0.04)',
-  neomorphicDark: 'rgba(0,0,0,0.8)',
+  // ── Neomorphic (Light) ────────────────────────────────────────────────────
+  neomorphicBg: '#F8F9FA',
+  neomorphicLight: 'rgba(255,255,255,0.90)',
+  neomorphicDark: 'rgba(0,0,0,0.10)',
 };
 
 export const Spacing = {
@@ -120,44 +120,44 @@ export const FontWeight = {
 export const Shadow = {
   sm: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   md: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
+    elevation: 4,
   },
   lg: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.8,
-    shadowRadius: 32,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
   },
   neonLime: {
-    shadowColor: '#B6FF3B',
+    shadowColor: '#65A30D',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   electricCyan: {
-    shadowColor: '#40E0FF',
+    shadowColor: '#0284C7',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   supabase: {
-    shadowColor: '#3ECF8E',
+    shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
 };

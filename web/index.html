@@ -15,7 +15,7 @@
     />
 
     <!-- ── PWA Theme ────────────────────────────────────────────────────── -->
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#FFFFFF" />
     <meta name="application-name" content="MetroRide PH" />
     <meta
       name="description"
@@ -29,11 +29,10 @@
     -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <!--
-      black-translucent: Makes the iOS status bar transparent and overlay the
-      app content, allowing the Neon Onyx background (#000000) to bleed through.
+      default: Light-mode status bar with dark text/icons on the white background.
       Content is shifted via env(safe-area-inset-top) to avoid overlap.
     -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="MetroRide" />
 
     <!-- Touch icons (to be provided manually) -->
@@ -53,10 +52,10 @@
 
     <!-- ── Open Graph ────────────────────────────────────────────────────── -->
     <meta property="og:site_name" content="MetroRide PH" />
-    <meta property="og:title" content="MetroRide PH — The Elite Rail Companion" />
+    <meta property="og:title" content="MetroRide PH — The Rail Companion" />
     <meta
       property="og:description"
-      content="Navigate Metro Manila's MRT-3, LRT-1 &amp; LRT-2 with precision. Real-time crowd intelligence, AI-powered route planning, 2026 live fare engine, and a Neon Onyx interface built for elite commuters. Your premium rail companion — free as a PWA."
+      content="Navigate Metro Manila's MRT-3, LRT-1 &amp; LRT-2 with precision. Real-time crowd intelligence, AI-powered route planning, 2026 live fare engine. Your trusted rail companion — free as a PWA."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://metroride.ph/" />
@@ -69,10 +68,10 @@
     <!-- ── Twitter Card ───────────────────────────────────────────────────── -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@MetroRidePH" />
-    <meta name="twitter:title" content="MetroRide PH — The Elite Rail Companion" />
+    <meta name="twitter:title" content="MetroRide PH — The Rail Companion" />
     <meta
       name="twitter:description"
-      content="Navigate Metro Manila's MRT-3, LRT-1 &amp; LRT-2 with precision. Real-time crowd intelligence, AI route planning, live fare engine, and a Neon Onyx interface built for elite commuters."
+      content="Navigate Metro Manila's MRT-3, LRT-1 &amp; LRT-2 with precision. Real-time crowd intelligence, AI route planning, and a live fare engine."
     />
     <meta name="twitter:image" content="/preview-social.png" />
     <meta name="twitter:image:alt" content="MetroRide PH — Elite Rail Companion for Metro Manila" />
@@ -80,7 +79,7 @@
     <!-- ── Critical CSS ──────────────────────────────────────────────────── -->
     <!--
       Applied before the React bundle loads to prevent Flash of Unstyled Content
-      (FOUC). Matches the Neon Onyx theme exactly.
+      (FOUC). Matches the standard Light Mode theme.
     -->
     <style>
       /* Reset & base */
@@ -104,8 +103,9 @@
         padding: 0;
         width: 100%;
         height: 100%;
-        /* Neon Onyx base background — prevents white flash on load */
-        background-color: #000000;
+        /* Light Mode base — prevents dark flash on load */
+        background-color: #FFFFFF;
+        color: #0A0A0A;
         /* Prevent iOS rubber-band/bounce scroll on the root */
         overscroll-behavior: none;
         /* Prevent text size adjustment on orientation change (iOS) */
@@ -126,12 +126,12 @@
         width: 100%;
         display: flex;
         flex-direction: column;
-        /* Onyx surface while the bundle boots */
-        background-color: #0D0E10;
+        /* Light surface while the bundle boots */
+        background-color: #F8F9FA;
       }
 
       /*
-        Glassmorphism optimisation for Safari.
+        Light frosted-glass for Safari.
         backdrop-filter is prefixed in older Safari versions — ensure both
         vendor-prefixed and unprefixed forms are present for maximum compatibility.
         React Native Web inlines these via style props, but this rule acts as a
@@ -141,8 +141,8 @@
         compositor layer, ensuring silky 60fps transitions on mobile browsers.
       */
       .glass-surface {
-        -webkit-backdrop-filter: blur(20px) saturate(180%);
-        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(160%);
+        backdrop-filter: blur(20px) saturate(160%);
         will-change: transform, opacity;
         transform: translateZ(0);
         -webkit-transform: translateZ(0);
@@ -164,7 +164,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #08090A;
+        background: #FFFFFF;
         z-index: 9999;
         transition: opacity 0.4s ease;
       }
@@ -176,8 +176,8 @@
         width: 72px;
         height: 72px;
         border-radius: 18px;
-        background: rgba(64, 224, 255, 0.08);
-        border: 1px solid rgba(64, 224, 255, 0.2);
+        background: rgba(0, 112, 204, 0.08);
+        border: 1px solid rgba(0, 112, 204, 0.20);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -188,12 +188,12 @@
         line-height: 1;
       }
       @keyframes breathe {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(64, 224, 255, 0.3); }
-        50%       { box-shadow: 0 0 24px 8px rgba(64, 224, 255, 0.15); }
+        0%, 100% { box-shadow: 0 0 0 0 rgba(0, 112, 204, 0.20); }
+        50%       { box-shadow: 0 0 20px 6px rgba(0, 112, 204, 0.10); }
       }
     </style>
 
-    <title>MetroRide PH — The Elite Rail Companion</title>
+    <title>MetroRide PH — The Rail Companion</title>
 
     <!-- Expo injects font preloads, meta tags, and other head elements here -->
     %EXPO_HEAD%

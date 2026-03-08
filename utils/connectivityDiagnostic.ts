@@ -143,10 +143,19 @@ function checkEnvVars(): DiagnosticResult {
 }
 
 // ── Full diagnostic run ───────────────────────────────────────────────────
+// Internet connectivity is checked FIRST (sequentially) before any backend
+// requests are attempted.  This guarantees we have an accurate picture of
+// network reachability prior to initialising Supabase or Newell connections.
 export async function runConnectivityDiagnostic(): Promise<FullDiagnosticReport> {
   const envCheck = checkEnvVars();
-  const [internet, supabaseCheck, newell] = await Promise.all([
-    checkInternet(),
+
+  // Step 1: Determine internet status first — backend checks are meaningless
+  // if the device has no network path to the outside world.
+  const internet = await checkInternet();
+
+  // Step 2: Only after we have an internet result, run backend checks.
+  // Running them in parallel with each other is fine — they are independent.
+  const [supabaseCheck, newell] = await Promise.all([
     checkSupabase(),
     checkNewellAI(),
   ]);
