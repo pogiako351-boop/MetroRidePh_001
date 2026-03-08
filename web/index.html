@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <!--
+      viewport-fit=cover: Expose CSS safe-area-inset-* env() variables so the
+      'North Avenue → Taft Avenue' header and bottom glass nav bar can be
+      perfectly inset away from notches and home gesture bars.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
+    />
+
+    <!-- ── PWA Theme ────────────────────────────────────────────────────── -->
+    <meta name="theme-color" content="#000000" />
+    <meta name="application-name" content="MetroRide PH" />
+    <meta
+      name="description"
+      content="Real-time MRT-3, LRT-1 & LRT-2 transit companion for Metro Manila commuters."
+    />
+
+    <!-- ── iOS Standalone PWA ────────────────────────────────────────────── -->
+    <!--
+      apple-mobile-web-app-capable: Enables full-screen standalone mode on iOS,
+      removing the Safari chrome (address bar, navigation buttons).
+    -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!--
+      black-translucent: Makes the iOS status bar transparent and overlay the
+      app content, allowing the Neon Onyx background (#000000) to bleed through.
+      Content is shifted via env(safe-area-inset-top) to avoid overlap.
+    -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MetroRide" />
+
+    <!-- Touch icons (to be provided manually) -->
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png" />
+
+    <!-- ── Android / Generic PWA ─────────────────────────────────────────── -->
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- ── PWA Manifest ──────────────────────────────────────────────────── -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- ── Favicon ───────────────────────────────────────────────────────── -->
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png" />
+    <link rel="shortcut icon" href="/favicon.png" />
+
+    <!-- ── Open Graph / Twitter ──────────────────────────────────────────── -->
+    <meta property="og:title" content="MetroRide PH" />
+    <meta
+      property="og:description"
+      content="Real-time MRT-3, LRT-1 & LRT-2 transit companion for Metro Manila commuters."
+    />
+    <meta property="og:type" content="website" />
+
+    <!-- ── Critical CSS ──────────────────────────────────────────────────── -->
+    <!--
+      Applied before the React bundle loads to prevent Flash of Unstyled Content
+      (FOUC). Matches the Neon Onyx theme exactly.
+    -->
+    <style>
+      /* Reset & base */
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        height: 100%;
+        /* Respect device safe areas — critical for iPhone notch / Dynamic Island */
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        /* Reset safe area after the JS takes over */
+        padding: 0;
+      }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        /* Neon Onyx base background — prevents white flash on load */
+        background-color: #000000;
+        /* Prevent iOS rubber-band/bounce scroll on the root */
+        overscroll-behavior: none;
+        /* Prevent text size adjustment on orientation change (iOS) */
+        -webkit-text-size-adjust: 100%;
+      }
+
+      body {
+        /* Prevent all scrolling at the body level — Expo ScrollViews handle it */
+        overflow: hidden;
+        /* Prevent tap highlight on iOS (React Native Web handles this) */
+        -webkit-tap-highlight-color: transparent;
+        /* Smooth momentum scrolling for inner scroll areas */
+        -webkit-overflow-scrolling: touch;
+      }
+
+      #root {
+        height: 100%;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        /* Onyx surface while the bundle boots */
+        background-color: #0D0E10;
+      }
+
+      /*
+        Glassmorphism optimisation for Safari.
+        backdrop-filter is prefixed in older Safari versions — ensure both
+        vendor-prefixed and unprefixed forms are present for maximum compatibility.
+        React Native Web inlines these via style props, but this rule acts as a
+        safety net for any DOM elements that need it.
+      */
+      .glass-surface {
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        backdrop-filter: blur(20px) saturate(180%);
+      }
+
+      /* Loading skeleton shown during JS hydration */
+      .boot-screen {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #08090A;
+        z-index: 9999;
+        transition: opacity 0.4s ease;
+      }
+      .boot-screen.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .boot-logo {
+        width: 72px;
+        height: 72px;
+        border-radius: 18px;
+        background: rgba(64, 224, 255, 0.08);
+        border: 1px solid rgba(64, 224, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: breathe 2s ease-in-out infinite;
+      }
+      .boot-train {
+        font-size: 32px;
+        line-height: 1;
+      }
+      @keyframes breathe {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(64, 224, 255, 0.3); }
+        50%       { box-shadow: 0 0 24px 8px rgba(64, 224, 255, 0.15); }
+      }
+    </style>
+
+    <title>MetroRide PH</title>
+
+    <!-- Expo injects font preloads, meta tags, and other head elements here -->
+    %EXPO_HEAD%
+  </head>
+  <body>
+    <!-- Boot screen — hidden once React mounts -->
+    <div class="boot-screen" id="boot-screen">
+      <div class="boot-logo">
+        <span class="boot-train">🚇</span>
+      </div>
+    </div>
+
+    <div id="root"></div>
+
+    <!-- ── Service Worker Registration ──────────────────────────────────── -->
+    <script>
+      (function () {
+        'use strict';
+
+        // Register the service worker for offline resilience and PWA install
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', function () {
+            navigator.serviceWorker
+              .register('/sw.js', { scope: '/' })
+              .then(function (registration) {
+                console.log(
+                  '[MetroRide] Service Worker registered. Scope:',
+                  registration.scope
+                );
+
+                // Prompt the active SW to take control immediately on update
+                registration.addEventListener('updatefound', function () {
+                  var newWorker = registration.installing;
+                  if (newWorker) {
+                    newWorker.addEventListener('statechange', function () {
+                      if (
+                        newWorker.state === 'installed' &&
+                        navigator.serviceWorker.controller
+                      ) {
+                        // A new version is available — notify the app
+                        window.dispatchEvent(new CustomEvent('sw-update-available'));
+                        newWorker.postMessage({ type: 'SKIP_WAITING' });
+                      }
+                    });
+                  }
+                });
+              })
+              .catch(function (err) {
+                console.warn('[MetroRide] Service Worker registration failed:', err);
+              });
+          });
+        }
+
+        // Hide the boot screen once React has painted the first frame
+        if (typeof requestAnimationFrame !== 'undefined') {
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              var bootScreen = document.getElementById('boot-screen');
+              if (bootScreen) {
+                bootScreen.classList.add('hidden');
+                setTimeout(function () {
+                  if (bootScreen.parentNode) {
+                    bootScreen.parentNode.removeChild(bootScreen);
+                  }
+                }, 500);
+              }
+            });
+          });
+        }
+      })();
+    </script>
+
+    <!-- Expo injects the React Native Web bundle here -->
+    %EXPO_SCRIPTS%
+  </body>
+</html>

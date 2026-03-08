@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Stack, Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/theme';
 import { syncOfflineData } from '@/utils/storage';
 import FirstLaunchModal, { checkFirstLaunchAccepted } from '@/components/ui/FirstLaunchModal';
+import { PWAInstallPrompt } from '@/components/ui/PWAInstallPrompt';
 
 const ONBOARDING_DONE_KEY = '@metroride_onboarded';
 
@@ -113,7 +114,11 @@ export default function RootLayout() {
         <FirstLaunchModal visible onAccept={handleTermsAccepted} />
       )}
 
-      <StatusBar style="dark" />
+      {/* PWA install prompt — web only, shown after a brief delay */}
+      {hasOnboarded && termsAccepted && <PWAInstallPrompt />}
+
+      {/* Light status bar icons for the Neon Onyx dark theme */}
+      <StatusBar style={Platform.OS === 'web' ? 'auto' : 'light'} />
     </>
   );
 }
