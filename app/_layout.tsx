@@ -28,7 +28,7 @@ export default function RootLayout() {
 
   // Wait for storage checks
   if (hasOnboarded === null || termsAccepted === null) {
-    return <View style={{ flex: 1, backgroundColor: Colors.background }} />;
+    return <View style={{ flex: 1, backgroundColor: Colors.surface }} />;
   }
 
   const handleTermsAccepted = () => {
@@ -117,8 +117,8 @@ export default function RootLayout() {
       {/* PWA install prompt — web only, shown after a brief delay */}
       {hasOnboarded && termsAccepted && <PWAInstallPrompt />}
 
-      {/* Dark status bar icons for the Light Mode theme */}
-      <StatusBar style={Platform.OS === 'web' ? 'auto' : 'dark'} />
+      {/* Light status bar icons for the Neon Onyx dark theme */}
+      <StatusBar style={Platform.OS === 'web' ? 'auto' : 'light'} />
     </>
   );
 }
