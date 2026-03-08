@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Animated, Pressable, Platform } from 'react-native';
 
 interface LiveDataBadgeProps {
   visible?: boolean;
@@ -11,6 +11,8 @@ interface LiveDataBadgeProps {
 export default function LiveDataBadge({ visible = true, lastSync, compact = false, supabaseMode = false }: LiveDataBadgeProps) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipTime, setTooltipTime] = useState('');
 
   useEffect(() => {
     Animated.timing(opacityAnim, {
@@ -49,37 +51,82 @@ export default function LiveDataBadge({ visible = true, lastSync, compact = fals
     return `${Math.floor(diff / 3600)}h ago`;
   };
 
+  const handleTooltipToggle = () => {
+    if (!showTooltip) {
+      const now = lastSync ?? new Date();
+      setTooltipTime(
+        now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      );
+    }
+    setShowTooltip((p) => !p);
+  };
+
   const dotColor = supabaseMode ? '#3ECF8E' : '#22C55E';
 
   return (
-    <Animated.View style={[styles.container, compact && styles.compact, { opacity: opacityAnim }]}>
-      <View style={styles.dotWrapper}>
-        <Animated.View
+    <View style={styles.wrapper}>
+      <Pressable onPress={handleTooltipToggle} accessibilityRole="button" accessibilityLabel="System health status">
+        <Animated.View style={[styles.container, compact && styles.compact, { opacity: opacityAnim }]}>
+          <View style={styles.dotWrapper}>
+            <Animated.View
+              style={[
+                styles.dotRing,
+                {
+                  backgroundColor: dotColor,
+                  transform: [{ scale: pulseAnim }],
+                  opacity: pulseAnim.interpolate({
+                    inputRange: [1, 1.6],
+                    outputRange: [0.35, 0],
+                  }),
+                },
+              ]}
+            />
+            <View style={[styles.dotCore, { backgroundColor: dotColor }]} />
+          </View>
+          <Text style={[styles.label, compact && styles.labelCompact, { color: dotColor }]}>
+            {supabaseMode ? 'Verified via Supabase' : 'Live Data'}
+          </Text>
+          {!compact && lastSync && (
+            <Text style={[styles.sub, { color: dotColor + 'AA' }]}>Synced {formatSync(lastSync)}</Text>
+          )}
+        </Animated.View>
+      </Pressable>
+
+      {showTooltip && (
+        <View
           style={[
-            styles.dotRing,
-            {
-              backgroundColor: dotColor,
-              transform: [{ scale: pulseAnim }],
-              opacity: pulseAnim.interpolate({
-                inputRange: [1, 1.6],
-                outputRange: [0.35, 0],
-              }),
-            },
+            styles.tooltip,
+            Platform.OS === 'web' && ({
+              backdropFilter: 'blur(24px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+            } as object),
           ]}
-        />
-        <View style={[styles.dotCore, { backgroundColor: dotColor }]} />
-      </View>
-      <Text style={[styles.label, compact && styles.labelCompact, { color: dotColor }]}>
-        {supabaseMode ? 'Verified via Supabase' : 'Live Data'}
-      </Text>
-      {!compact && lastSync && (
-        <Text style={[styles.sub, { color: dotColor + 'AA' }]}>Synced {formatSync(lastSync)}</Text>
+        >
+          {/* Arrow pointer */}
+          <View style={[styles.tooltipArrow, { borderBottomColor: 'rgba(62,207,142,0.2)' }]} />
+          <View style={styles.tooltipInner}>
+            <View style={styles.tooltipRow}>
+              <View style={[styles.tooltipStatusDot, { backgroundColor: dotColor }]} />
+              <Text style={styles.tooltipKey}>Database Status</Text>
+              <Text style={[styles.tooltipVal, { color: dotColor }]}>Operational</Text>
+            </View>
+            <View style={[styles.tooltipDivider, { backgroundColor: dotColor + '28' }]} />
+            <View style={styles.tooltipRow}>
+              <View style={[styles.tooltipStatusDot, { backgroundColor: dotColor + '80' }]} />
+              <Text style={styles.tooltipKey}>Last Sync</Text>
+              <Text style={styles.tooltipVal}>{tooltipTime}</Text>
+            </View>
+          </View>
+        </View>
       )}
-    </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    alignSelf: 'flex-start',
+  },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -90,7 +137,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     gap: 5,
-    alignSelf: 'flex-start',
   },
   compact: {
     paddingHorizontal: 8,
@@ -124,5 +170,61 @@ const styles = StyleSheet.create({
   sub: {
     fontSize: 10,
     fontWeight: '400',
+  },
+  // Tooltip
+  tooltip: {
+    marginTop: 6,
+    backgroundColor: 'rgba(10,12,15,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(62,207,142,0.2)',
+    borderRadius: 10,
+    overflow: 'hidden',
+    minWidth: 210,
+    shadowColor: '#3ECF8E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  tooltipArrow: {
+    width: 0,
+    height: 0,
+    alignSelf: 'flex-start',
+    marginLeft: 14,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderBottomWidth: 6,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+  },
+  tooltipInner: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    gap: 6,
+  },
+  tooltipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  tooltipStatusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  tooltipKey: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '500',
+    flex: 1,
+  },
+  tooltipVal: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.92)',
+    fontWeight: '600',
+  },
+  tooltipDivider: {
+    height: 1,
+    marginHorizontal: -12,
   },
 });

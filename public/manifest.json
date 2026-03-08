@@ -1,7 +1,7 @@
 {
   "name": "MetroRide PH",
   "short_name": "MetroRide",
-  "description": "Real-time MRT-3, LRT-1 & LRT-2 transit companion for Metro Manila commuters.",
+  "description": "MetroRide PH is the elite rail companion for Metro Manila commuters. Get real-time MRT-3, LRT-1 & LRT-2 crowd intelligence, AI-powered route planning, 2026 official fare calculations, beep card management, and a stunning Neon Onyx interface — all in one premium PWA. Zero installs, maximum precision.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -9,7 +9,7 @@
   "theme_color": "#000000",
   "orientation": "portrait-primary",
   "lang": "en-PH",
-  "categories": ["travel", "navigation", "utilities"],
+  "categories": ["travel", "navigation", "utilities", "productivity", "lifestyle"],
   "prefer_related_applications": false,
   "icons": [
     {
@@ -43,19 +43,55 @@
       "purpose": "maskable"
     }
   ],
-  "screenshots": [],
+  "screenshots": [
+    {
+      "src": "/screenshots/dashboard.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Live Dashboard — Real-time train status across MRT-3, LRT-1 & LRT-2 with Neon Onyx UI"
+    },
+    {
+      "src": "/screenshots/route-planner.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "AI Route Planner — Optimal transfers and walking paths calculated in real time"
+    },
+    {
+      "src": "/screenshots/fare-calculator.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "2026 Fare Engine — Official fares for all Metro Manila rail lines"
+    },
+    {
+      "src": "/screenshots/metro-ai.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "MetroAI — Your intelligent transit assistant for commute guidance and crowd insights"
+    },
+    {
+      "src": "/screenshots/dashboard-wide.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "MetroRide PH Desktop — Full-width Neon Onyx elite dashboard for power commuters"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Fare Calculator",
       "short_name": "Fares",
-      "description": "Calculate your MRT/LRT fare",
+      "description": "Calculate your MRT/LRT fare instantly with the 2026 rail fare engine",
       "url": "/fare-calculator",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Route Planner",
       "short_name": "Routes",
-      "description": "Plan your transit route",
+      "description": "Plan your optimal transit route across all Metro Manila rail lines",
       "url": "/route-planner",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }

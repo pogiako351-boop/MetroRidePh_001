@@ -6,6 +6,8 @@ import {
   ScrollView,
   Pressable,
   Switch,
+  Platform,
+  Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -93,6 +95,22 @@ export default function SettingsScreen() {
       setTimeout(() => setSaved(false), 2000);
     } catch {}
   }, [quietEnabled, quietStart, quietEnd, selectedLines, notifDelays, notifCrowd, notifService]);
+
+  const handleShare = useCallback(async () => {
+    hapticLight();
+    const shareMessage = '🚇 Navigate Metro Manila like a pro! Real-time MRT-3, LRT-1 & LRT-2 crowd intelligence, AI route planning, and live fare engine — all in one elite PWA. No installs needed. → https://metroride.ph';
+    try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && (navigator as Navigator & { share?: (data: object) => Promise<void> }).share) {
+        await (navigator as Navigator & { share: (data: object) => Promise<void> }).share({
+          title: 'MetroRide PH — The Elite Rail Companion',
+          text: '🚇 Navigate Metro Manila like a pro! Real-time MRT-3, LRT-1 & LRT-2 crowd intelligence, AI route planning, and live fare engine — all in one elite PWA.',
+          url: 'https://metroride.ph',
+        });
+      } else {
+        await Share.share({ message: shareMessage });
+      }
+    } catch {}
+  }, []);
 
   const toggleLine = useCallback((lineId: string) => {
     hapticLight();
@@ -380,6 +398,25 @@ export default function SettingsScreen() {
           ))}
         </Animated.View>
 
+        {/* Share App */}
+        <Animated.View entering={FadeInDown.duration(500).delay(480)}>
+          <Pressable
+            onPress={handleShare}
+            style={({ pressed }) => [styles.shareCard, pressed && styles.pressed]}
+          >
+            <View style={styles.shareIconWrap}>
+              <Ionicons name="share-social" size={20} color={Colors.primary} />
+            </View>
+            <View style={styles.shareInfo}>
+              <Text style={styles.shareTitle}>Share MetroRide PH</Text>
+              <Text style={styles.shareDesc}>Invite fellow commuters to the elite rail experience</Text>
+            </View>
+            <View style={styles.shareArrow}>
+              <Ionicons name="arrow-up-circle" size={22} color={Colors.primary} />
+            </View>
+          </Pressable>
+        </Animated.View>
+
         {/* App Info */}
         <Animated.View entering={FadeInDown.duration(500).delay(500)} style={styles.appInfo}>
           <Text style={styles.appName}>MetroRide PH</Text>
@@ -659,6 +696,42 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
     marginTop: 1,
+  },
+  shareCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.primarySoft,
+    gap: Spacing.md,
+    ...Shadow.sm,
+  },
+  shareIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.primarySoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shareInfo: {
+    flex: 1,
+  },
+  shareTitle: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.bold,
+    color: Colors.text,
+  },
+  shareDesc: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  shareArrow: {
+    opacity: 0.85,
   },
   appInfo: {
     alignItems: 'center',

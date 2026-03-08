@@ -51,13 +51,31 @@
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png" />
     <link rel="shortcut icon" href="/favicon.png" />
 
-    <!-- ── Open Graph / Twitter ──────────────────────────────────────────── -->
-    <meta property="og:title" content="MetroRide PH" />
+    <!-- ── Open Graph ────────────────────────────────────────────────────── -->
+    <meta property="og:site_name" content="MetroRide PH" />
+    <meta property="og:title" content="MetroRide PH — The Elite Rail Companion" />
     <meta
       property="og:description"
-      content="Real-time MRT-3, LRT-1 & LRT-2 transit companion for Metro Manila commuters."
+      content="Navigate Metro Manila's MRT-3, LRT-1 &amp; LRT-2 with precision. Real-time crowd intelligence, AI-powered route planning, 2026 live fare engine, and a Neon Onyx interface built for elite commuters. Your premium rail companion — free as a PWA."
     />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://metroride.ph/" />
+    <meta property="og:image" content="/preview-social.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="MetroRide PH — Elite Rail Companion for Metro Manila" />
+    <meta property="og:locale" content="en_PH" />
+
+    <!-- ── Twitter Card ───────────────────────────────────────────────────── -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@MetroRidePH" />
+    <meta name="twitter:title" content="MetroRide PH — The Elite Rail Companion" />
+    <meta
+      name="twitter:description"
+      content="Navigate Metro Manila's MRT-3, LRT-1 &amp; LRT-2 with precision. Real-time crowd intelligence, AI route planning, live fare engine, and a Neon Onyx interface built for elite commuters."
+    />
+    <meta name="twitter:image" content="/preview-social.png" />
+    <meta name="twitter:image:alt" content="MetroRide PH — Elite Rail Companion for Metro Manila" />
 
     <!-- ── Critical CSS ──────────────────────────────────────────────────── -->
     <!--
@@ -118,10 +136,25 @@
         vendor-prefixed and unprefixed forms are present for maximum compatibility.
         React Native Web inlines these via style props, but this rule acts as a
         safety net for any DOM elements that need it.
+
+        will-change + translateZ(0) promotes glass layers to their own GPU
+        compositor layer, ensuring silky 60fps transitions on mobile browsers.
       */
       .glass-surface {
         -webkit-backdrop-filter: blur(20px) saturate(180%);
         backdrop-filter: blur(20px) saturate(180%);
+        will-change: transform, opacity;
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+        transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      /* Compositor hint for all animated elements — prevents paint-on-scroll jank */
+      .animated-layer {
+        will-change: transform, opacity;
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
       }
 
       /* Loading skeleton shown during JS hydration */
@@ -160,7 +193,7 @@
       }
     </style>
 
-    <title>MetroRide PH</title>
+    <title>MetroRide PH — The Elite Rail Companion</title>
 
     <!-- Expo injects font preloads, meta tags, and other head elements here -->
     %EXPO_HEAD%
@@ -186,11 +219,6 @@
             navigator.serviceWorker
               .register('/sw.js', { scope: '/' })
               .then(function (registration) {
-                console.log(
-                  '[MetroRide] Service Worker registered. Scope:',
-                  registration.scope
-                );
-
                 // Prompt the active SW to take control immediately on update
                 registration.addEventListener('updatefound', function () {
                   var newWorker = registration.installing;
