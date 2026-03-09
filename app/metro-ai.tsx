@@ -117,7 +117,6 @@ export default function MetroAIScreen() {
   ]);
   const [inputText, setInputText] = useState('');
   const [conversationHistory, setConversationHistory] = useState<string>('');
-  const [isPremium] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingInstance, setRecordingInstance] = useState<Audio.Recording | null>(null);
   const [scanningImageId, setScanningImageId] = useState<string | null>(null);
@@ -351,18 +350,6 @@ export default function MetroAIScreen() {
   }, [isRecording, startRecording, stopRecording]);
 
   const handleImageUpload = useCallback(async () => {
-    if (!isPremium) {
-      Alert.alert(
-        '🔒 Premium Feature',
-        'MetroAI Vision is available for Premium subscribers only.\n\nUpgrade to analyze station monitors, crowds, and more!',
-        [
-          { text: 'Maybe Later', style: 'cancel' },
-          { text: 'Go Premium', onPress: () => router.push('/premium') },
-        ]
-      );
-      return;
-    }
-
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Permission Required', 'Please allow access to your photo library.');
@@ -415,21 +402,9 @@ export default function MetroAIScreen() {
       };
       setMessages((prev) => [...prev, errMsg]);
     }
-  }, [isPremium, analyzeImage, router]);
+  }, [analyzeImage]);
 
   const handleCamera = useCallback(async () => {
-    if (!isPremium) {
-      Alert.alert(
-        '🔒 Premium Feature',
-        'MetroAI Vision is available for Premium subscribers only.',
-        [
-          { text: 'Maybe Later', style: 'cancel' },
-          { text: 'Go Premium', onPress: () => router.push('/premium') },
-        ]
-      );
-      return;
-    }
-
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Permission Required', 'Please allow camera access for live Vision Analysis.');
@@ -477,7 +452,7 @@ export default function MetroAIScreen() {
       };
       setMessages((prev) => [...prev, errMsg]);
     }
-  }, [isPremium, analyzeImage, router]);
+  }, [analyzeImage]);
 
   const laserY = laserAnim.interpolate({
     inputRange: [0, 1],
@@ -609,9 +584,10 @@ export default function MetroAIScreen() {
             <Text style={styles.headerSubtitle}>Rail Network Specialist · LRT-1 · MRT-3 · LRT-2</Text>
           </View>
         </View>
-        <Pressable onPress={() => router.push('/premium')} style={styles.premiumBtn}>
-          <Ionicons name="diamond-outline" size={20} color={Colors.electricCyan} />
-        </Pressable>
+        <View style={styles.freeAccessBadge}>
+          <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+          <Text style={styles.freeAccessText}>Free</Text>
+        </View>
       </View>
 
       {/* Quick prompts */}
@@ -669,16 +645,16 @@ export default function MetroAIScreen() {
           onContentSizeChange={scrollToBottom}
         />
 
-        {/* Vision teaser */}
-        <View style={styles.visionTeaser}>
+        {/* Vision info bar */}
+        <View style={styles.visionInfoBar}>
           <Ionicons name="eye-outline" size={14} color={Colors.electricCyan} />
-          <Text style={styles.visionTeaserText}>
+          <Text style={styles.visionInfoText}>
             Vision Analysis: Upload station photos for crowd & delay detection
           </Text>
-          <Pressable onPress={() => router.push('/premium')} style={styles.visionLock}>
-            <Ionicons name="lock-closed" size={12} color={Colors.electricCyan} />
-            <Text style={styles.visionLockText}>Premium</Text>
-          </Pressable>
+          <View style={styles.visionFreeTag}>
+            <Ionicons name="checkmark-circle" size={12} color={Colors.success} />
+            <Text style={styles.visionFreeTagText}>Free</Text>
+          </View>
         </View>
 
         {/* Input Bar */}
@@ -822,8 +798,21 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.medium,
     opacity: 0.8,
   },
-  premiumBtn: {
-    padding: Spacing.sm,
+  freeAccessBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(34,197,94,0.10)',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.20)',
+  },
+  freeAccessText: {
+    fontSize: FontSize.xs,
+    color: Colors.success,
+    fontWeight: FontWeight.semibold,
   },
   quickPromptsContainer: {
     paddingHorizontal: Spacing.lg,
@@ -1093,7 +1082,7 @@ const styles = StyleSheet.create({
   userTimestamp: {
     color: 'rgba(255,255,255,0.4)',
   },
-  visionTeaser: {
+  visionInfoBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -1103,25 +1092,25 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(64,224,255,0.12)',
   },
-  visionTeaserText: {
+  visionInfoText: {
     flex: 1,
     fontSize: FontSize.xs,
     color: Colors.textSecondary,
   },
-  visionLock: {
+  visionFreeTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: 'rgba(64,224,255,0.10)',
+    backgroundColor: 'rgba(34,197,94,0.10)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: 'rgba(64,224,255,0.20)',
+    borderColor: 'rgba(34,197,94,0.20)',
   },
-  visionLockText: {
+  visionFreeTagText: {
     fontSize: FontSize.xs,
-    color: Colors.electricCyan,
+    color: Colors.success,
     fontWeight: FontWeight.semibold,
   },
   inputBar: {

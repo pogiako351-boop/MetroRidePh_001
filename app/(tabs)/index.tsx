@@ -49,7 +49,7 @@ const QUICK_ACTIONS = [
   { id: 'beep', title: 'Beep\nCard', icon: 'card-outline' as const, color: '#22C55E', route: '/beep-card' },
   { id: 'alerts', title: 'Live\nAlerts', icon: 'notifications-outline' as const, color: '#FF4444', route: '/(tabs)/alerts' },
   { id: 'settings', title: 'Settings', icon: 'settings-outline' as const, color: Colors.textSecondary, route: '/settings' },
-  { id: 'premium', title: 'Go\nPremium', icon: 'diamond-outline' as const, color: Colors.violet, route: '/premium' },
+  { id: 'reminders', title: 'Reminders', icon: 'alarm-outline' as const, color: Colors.electricCyan, route: '/reminders' },
 ];
 
 function getTimeOfDayLabel(hour: number): { label: string; emoji: string } {
@@ -353,8 +353,8 @@ export default function DashboardScreen() {
               >
                 <Ionicons name="settings-outline" size={18} color={Colors.textSecondary} />
               </Pressable>
-              <Pressable onPress={() => { hapticLight(); router.push('/premium'); }} style={styles.premiumButton}>
-                <Ionicons name="diamond" size={16} color={Colors.electricCyan} />
+              <Pressable onPress={() => { hapticLight(); router.push('/transit-map'); }} style={styles.mapButton}>
+                <Ionicons name="map" size={16} color={Colors.neonLime} />
               </Pressable>
             </View>
           </Animated.View>
@@ -385,6 +385,40 @@ export default function DashboardScreen() {
             )}
           </View>
         </Animated.View>
+
+        {/* Quick Access Hero Buttons */}
+        {!showSearch && (
+          <Animated.View entering={FadeInDown.duration(500).delay(220)} style={styles.quickAccessRow}>
+            <Pressable
+              style={({ pressed }) => [styles.quickMapCard, pressed && styles.pressed]}
+              onPress={() => { hapticMedium(); router.push('/transit-map'); }}
+            >
+              <View style={styles.quickMapGlow} />
+              <View style={styles.quickMapIcon}>
+                <Ionicons name="map" size={26} color={Colors.lrt1} />
+              </View>
+              <View style={styles.quickMapText}>
+                <Text style={styles.quickMapTitle}>Quick Map</Text>
+                <Text style={styles.quickMapSub}>LRT-1 · MRT-3 · LRT-2</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.lrt1} />
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.quickRouteCard, pressed && styles.pressed]}
+              onPress={() => { hapticMedium(); router.push('/route-planner'); }}
+            >
+              <View style={styles.quickRouteGlow} />
+              <View style={styles.quickRouteIcon}>
+                <Ionicons name="navigate" size={26} color={Colors.lrt2} />
+              </View>
+              <View style={styles.quickMapText}>
+                <Text style={styles.quickMapTitle}>Plan Route</Text>
+                <Text style={styles.quickMapSub}>Find fastest path</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.lrt2} />
+            </Pressable>
+          </Animated.View>
+        )}
 
         {/* Search Results / Recent Stations */}
         {(showSearch || recentStations.length > 0) && (
@@ -952,12 +986,103 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
     color: Colors.text,
   },
-  premiumButton: {
-    backgroundColor: 'rgba(64,224,255,0.10)',
+  mapButton: {
+    backgroundColor: 'rgba(182,255,59,0.10)',
     borderRadius: BorderRadius.full,
     padding: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.electricCyan + '30',
+    borderColor: Colors.neonLime + '40',
+  },
+  // Quick Access Hero Cards
+  quickAccessRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  quickMapCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,230,0,0.07)',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,230,0,0.25)',
+    overflow: 'hidden',
+    gap: Spacing.sm,
+    shadowColor: Colors.lrt1,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  quickMapGlow: {
+    position: 'absolute',
+    top: -30,
+    left: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.lrt1,
+    opacity: 0.05,
+  },
+  quickRouteCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(187,68,255,0.07)',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(187,68,255,0.25)',
+    overflow: 'hidden',
+    gap: Spacing.sm,
+    shadowColor: Colors.lrt2,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  quickRouteGlow: {
+    position: 'absolute',
+    top: -30,
+    left: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.lrt2,
+    opacity: 0.05,
+  },
+  quickMapIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,230,0,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,230,0,0.2)',
+  },
+  quickRouteIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(187,68,255,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(187,68,255,0.2)',
+  },
+  quickMapText: {
+    flex: 1,
+  },
+  quickMapTitle: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
+    color: Colors.text,
+  },
+  quickMapSub: {
+    fontSize: FontSize.xs,
+    color: Colors.textSecondary,
+    marginTop: 1,
   },
   searchBarContainer: {
     marginBottom: Spacing.lg,

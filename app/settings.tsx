@@ -348,7 +348,7 @@ export default function SettingsScreen() {
           {[
             { icon: 'card', label: 'Beep Card Manager', desc: 'Manage your transit card balance', route: '/beep-card', color: '#059669', bg: '#D1FAE5' },
             { icon: 'stats-chart', label: 'My Insights', desc: 'View commute stats and badges', route: '/insights', color: Colors.violet, bg: Colors.violetLight },
-            { icon: 'diamond', label: 'Go Premium', desc: 'Unlock AI Vision and advanced features', route: '/premium', color: Colors.gold, bg: Colors.amberLight },
+            { icon: 'map', label: 'System Map', desc: 'Interactive LRT-1, MRT-3 & LRT-2 rail map', route: '/transit-map', color: Colors.lrt1, bg: 'rgba(255,230,0,0.10)' },
           ].map((item) => (
             <Pressable
               key={item.label}
