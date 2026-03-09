@@ -1,0 +1,12 @@
+# MetroRide PH — Netlify Deployment Configuration
+# Fixes 404 errors on page refresh for deep-linked SPA routes.
+# All requests are rewritten to /index.html (200, not 301/302),
+# letting Expo Router handle client-side navigation.
+
+[build]
+  publish = "dist"
+
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
