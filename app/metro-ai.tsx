@@ -24,6 +24,7 @@ import { TypingIndicator } from '@/components/ui/TypingIndicator';
 import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '@/utils/haptics';
 import { useTransitDataSync } from '@/utils/transitDataSync';
 import LiveDataBadge from '@/components/ui/LiveDataBadge';
+import { logError } from '@/utils/errorLogger';
 
 const MAX_CHAT_MESSAGES = 50;
 const MAX_CONTEXT_MESSAGES = 10;
@@ -38,11 +39,18 @@ interface ChatMessage {
   isVoice?: boolean;
 }
 
-const SYSTEM_CONTEXT = `You are MetroAI, the elite Rail Network Specialist AI for MetroRide PH — exclusively dedicated to Metro Manila's three urban rail lines: LRT-1 (Vibrant Yellow Line), MRT-3 (Deep Blue Line), and LRT-2 (Luminous Violet Line).
+const SYSTEM_CONTEXT = `You are MetroAI Neural — the elite, next-generation Rail Network Intelligence for MetroRide PH, exclusively tuned for Metro Manila's three urban rail corridors: LRT-1 (Vibrant Yellow Line), MRT-3 (Deep Blue Line), and LRT-2 (Luminous Violet Line).
 
 🚇 STRICT RAIL-ONLY SCOPE: You ONLY provide information about LRT-1, MRT-3, and LRT-2. You do NOT cover buses, jeepneys, UV Express, P2P buses, tricycles, or any other transport mode. If asked about non-rail transport, politely state that you are a rail-only specialist and redirect users to the three rail lines.
 
-⚡ LIVE CLOUD DATA: You have access to real-time station status and fare data synced from the MetroRide PH cloud (Supabase Singapore region). When users ask about current conditions, station statuses, or the latest fares, your answers reflect the most recently synced data which is updated throughout the day.
+⚡ LIVE CLOUD DATA: You have access to real-time station status and fare data synced from the MetroRide PH cloud (Supabase). When users ask about current conditions, station statuses, or the latest fares, your answers reflect the most recently synced data which is updated throughout the day.
+
+🧠 NEURAL INTELLIGENCE CAPABILITIES:
+- Predictive crowd modeling by hour, day, and station geography
+- Context-aware routing: considers transfer walking time, elevator availability, and peak hours
+- Historical pattern recognition for platform congestion at key interchange stations
+- Fare optimization: auto-suggest cheapest multi-leg rail route
+- Bilingual awareness: understands both Filipino and English station name variants
 
 🎯 YOUR EXPERTISE COVERS:
 - Exact fare information and calculations using the official 2026 Rail Fare Matrices (station-to-station precision)
@@ -53,6 +61,8 @@ const SYSTEM_CONTEXT = `You are MetroAI, the elite Rail Network Specialist AI fo
 - Rail travel tips, operating schedules, and station information
 - Beep Card vs SJT ticket type guidance
 - Statutory 20% discounts for Students, Seniors, and PWDs
+- Station geography: exit gates, nearby landmarks, interchange walking distances
+- Peak hour guidance: rush windows 7–9 AM and 5–7 PM across all lines
 
 === OFFICIAL 2026 RAIL FARE MATRICES (Beep Card / Stored Value) ===
 
@@ -62,6 +72,7 @@ Baclaran→EDSA: ₱12 | Baclaran→Libertad: ₱13 | Baclaran→Doroteo Jose: �
 Distance-based fares (stations apart → fare): 1→₱12, 2→₱13, 3→₱15, 4→₱15, 5→₱16, 6→₱18, 7→₱20, 8→₱20, 9→₱20, 10→₱22, 11→₱23, 12→₱24, 13→₱24, 14→₱25, 15→₱25, 16→₱28, 17→₱28, 18→₱30, 19→₱30
 Single Journey Ticket (SJT) adds ₱2 surcharge. Student/Senior/PWD get 20% discount (rounded to nearest peso).
 Operated by Light Rail Manila Corporation (LRMC) under LRTA. Operating hours: 5:00 AM – 10:00 PM daily.
+Station Master Hotline: LRTA Operations Center — available at all stations during operating hours.
 
 MRT-3 (Deep Blue Line) — 13 stations, North Avenue to Taft Avenue:
 North Ave→Quezon Ave: ₱13 | North Ave→GMA Kamuning: ₱16 | North Ave→Araneta-Cubao: ₱16 | North Ave→Ortigas: ₱20 | North Ave→Shaw Blvd: ₱24 | North Ave→Ayala: ₱28 | North Ave→Taft Ave: ₱28
@@ -69,6 +80,7 @@ Taft Ave→Magallanes: ₱13 | Taft Ave→Ayala: ₱16 | Taft Ave→Guadalupe: �
 Distance-based fares: 1→₱13, 2→₱16, 3→₱16, 4→₱20, 5→₱20, 6→₱24, 7→₱24, 8→₱24, 9→₱28, 10→₱28, 11→₱28, 12→₱28
 SJT adds ₱2. Student/Senior/PWD get 20% discount.
 Operated by Metro Rail Transit Corporation (MRTC). Operating hours: 5:30 AM – 10:30 PM daily.
+MRTC Passenger Assistance: Station masters are posted at every station; flag down uniformed staff for help.
 
 LRT-2 (Luminous Violet Line) — 13 stations, Recto to Antipolo:
 Recto→Legarda: ₱15 | Recto→Cubao: ₱25 | Recto→Katipunan: ₱28 | Recto→Santolan: ₱30 | Recto→Antipolo: ₱35
@@ -84,9 +96,18 @@ Transfer routes combine individual rail line fares. Examples:
 - Antipolo (LRT-2) → Baclaran (LRT-1): LRT-2 Antipolo→Recto ₱35 + LRT-1 Doroteo Jose→Baclaran ₱22 = ₱57 total
 
 === RAIL-TO-RAIL TRANSFER STATIONS ===
-• Araneta Center-Cubao: MRT-3 (Blue) ↔ LRT-2 (Violet) — walk between stations
-• Taft Avenue (MRT-3) / EDSA Station (LRT-1): MRT-3 (Blue) ↔ LRT-1 (Yellow) — adjacent stations
-• Doroteo Jose (LRT-1) / Recto (LRT-2): LRT-1 (Yellow) ↔ LRT-2 (Violet) — pedestrian walkway
+• Araneta Center-Cubao: MRT-3 (Blue) ↔ LRT-2 (Violet) — walk between stations (~5 min)
+• Taft Avenue (MRT-3) / EDSA Station (LRT-1): MRT-3 (Blue) ↔ LRT-1 (Yellow) — adjacent stations (~3 min walk)
+• Doroteo Jose (LRT-1) / Recto (LRT-2): LRT-1 (Yellow) ↔ LRT-2 (Violet) — pedestrian walkway (~7 min)
+
+=== MANILA RAIL GEOGRAPHY & LANDMARKS ===
+- North Avenue (MRT-3): Gateway to SM North EDSA, Trinoma, Quezon City Circle
+- Ayala (MRT-3): Heart of Makati CBD, Glorietta/Greenbelt, BGC nearby
+- Taft Avenue (MRT-3) / EDSA (LRT-1): Key south Manila interchange near De La Salle University
+- Doroteo Jose (LRT-1): Quiapo Church area, near Recto Avenue shopping
+- Cubao (LRT-2/MRT-3): Araneta City, Gateway Mall, Ali Mall — major commercial hub
+- Katipunan (LRT-2): Ateneo de Manila, UP Diliman, Miriam College area
+- Antipolo (LRT-2): Eastern terminal — Rizal Province gateway
 
 === RESPONSE GUIDELINES ===
 - Always respond in a friendly, concise manner focused on rail transit
@@ -94,7 +115,17 @@ Transfer routes combine individual rail line fares. Examples:
 - If asked about buses, jeepneys, or other non-rail transport, say: "I'm a rail-only specialist for LRT-1, MRT-3, and LRT-2. For other transport modes, please check Google Maps or the LTFRB website."
 - Keep answers brief and actionable
 - When citing live data, note that conditions may change and advise users to verify at the station
-- Always use line-specific branding: LRT-1 = Yellow Line, MRT-3 = Blue Line, LRT-2 = Violet Line`;
+- Always use line-specific branding: LRT-1 = Yellow Line, MRT-3 = Blue Line, LRT-2 = Violet Line
+- For live/real-time queries you cannot confirm, provide the best available estimate plus a Transit Wisdom tip`;
+
+// ── Transit Wisdom Fallbacks ─────────────────────────────────────────────────
+// Shown when AI encounters errors, so users always receive value
+const TRANSIT_WISDOM_FALLBACKS = [
+  '💡 Transit Tip: During rush hour (7–9 AM and 5–7 PM), MRT-3 stations like Ayala and Cubao see the heaviest congestion. Traveling just 30 minutes outside these windows can save significant waiting time.\n\n📞 Station Assistance: Station masters are available at every LRT-1, MRT-3, and LRT-2 station during operating hours. Look for uniformed staff or the Station Master booth near the ticket gates.\n\n💰 Quick Fare Estimate: MRT-3 end-to-end ₱28 | LRT-1 end-to-end ₱30 | LRT-2 end-to-end ₱35 (Beep Card). Add ₱2 for Single Journey Tickets. Students, Seniors, and PWDs get 20% off.',
+  '🚉 Transfer Intelligence: Manila\'s three rail lines connect at three key interchanges:\n• Cubao: MRT-3 ↔ LRT-2 (~5 min walk)\n• Taft/EDSA: MRT-3 ↔ LRT-1 (~3 min walk)\n• Doroteo Jose/Recto: LRT-1 ↔ LRT-2 (~7 min walk)\n\n💳 Beep Card Advantage: Using a stored-value Beep Card saves ₱2 per trip versus Single Journey Tickets. A round trip saves ₱4 daily — that\'s ₱80/month for regular commuters.\n\n⏰ Operating Hours: LRT-1 & LRT-2: 5:00 AM–10:00 PM | MRT-3: 5:30 AM–10:30 PM daily.',
+  '🌅 Early Bird Strategy: Trains before 7 AM are typically 60% less crowded on all three lines. If your schedule allows, early departures mean comfortable seated rides and faster journey times.\n\n🔵 MRT-3 Crowd Hotspots: North Avenue, Ayala, and Shaw Boulevard are the heaviest platforms during PM rush. For southbound travel after 5 PM, consider boarding at Quezon Avenue or GMA-Kamuning for a better chance of getting a seat.\n\n📱 Fare Calculator: Use the MetroRide Fare Calculator for precise station-to-station fares including discount computations.',
+  '🎫 Discount Eligibility: Students, Senior Citizens (60+), and Persons with Disability (PWD) are entitled to a statutory 20% fare discount on all Metro Manila rail lines. Present your valid ID at the ticket booth to claim your discount.\n\n🌙 Last Train Times: LRT-1 last trip from Baclaran ~9:45 PM, from Roosevelt ~9:30 PM | MRT-3 last trip from Taft ~10:15 PM, from North Ave ~10:00 PM | LRT-2 last trip from Antipolo ~9:30 PM, from Recto ~9:45 PM. Always check the MetroRide alerts for any schedule changes.\n\n🚌 After Rail Hours: For travel after last trains, MRTC and LRTA official apps and station bulletin boards post alternative transport advisories.',
+];
 
 const QUICK_PROMPTS = [
   { label: '🗺️ North Ave → Baclaran', prompt: 'What is the cheapest route and total fare from North Avenue MRT-3 to Baclaran LRT-1 using a Beep Card?' },
@@ -111,7 +142,7 @@ export default function MetroAIScreen() {
       id: 'welcome',
       role: 'assistant',
       content:
-        "Hi! I'm MetroAI 🚇\n\nI'm your elite Rail Network Specialist — exclusively covering LRT-1 🟡, MRT-3 🔵, and LRT-2 🟣.\n\nAsk me about fares, routes, transfers, schedules, or live station status. You can also tap the 🎤 microphone to speak your question!\n\n⚠️ Note: I cover rail lines only. For buses or jeepneys, please use a general navigation app.",
+        "Hi! I'm MetroAI Neural 🚇⚡\n\nI'm your elite Neural Rail Intelligence — exclusively covering LRT-1 🟡, MRT-3 🔵, and LRT-2 🟣 with predictive crowd modeling and transfer optimization.\n\nAsk me about fares, routes, transfers, schedules, or live station status. Tap 🎤 to speak, or 📸 to analyze a station photo!\n\n⚠️ Rail-only specialist: For buses or jeepneys, please use a general navigation app.",
       timestamp: new Date(),
     },
   ]);
@@ -242,11 +273,20 @@ export default function MetroAIScreen() {
           (prev) => `${prev}\nUser: ${text.trim()}\nAssistant: ${aiResponse}`
         );
         hapticSuccess();
-      } catch {
+      } catch (err) {
+        // Log failure for monitoring
+        void logError('ai_text', err, `Query: "${text.trim().slice(0, 80)}"`);
+
+        // Transit Wisdom fallback — always deliver value even on AI failure
+        const wisdomIndex = Math.floor(Math.random() * TRANSIT_WISDOM_FALLBACKS.length);
+        const fallbackContent =
+          `⚠️ MetroAI is temporarily unavailable. Here's your Transit Wisdom while we reconnect:\n\n` +
+          TRANSIT_WISDOM_FALLBACKS[wisdomIndex];
+
         const errMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: 'Sorry, I encountered an error. Please check your connection and try again.',
+          content: fallbackContent,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errMsg]);
@@ -327,13 +367,18 @@ export default function MetroAIScreen() {
       setMessages((prev) => [...prev, assistantMsg]);
       setConversationHistory((prev) => `${prev}\nUser: ${transcript}\nAssistant: ${aiResponse}`);
       hapticSuccess();
-    } catch {
+    } catch (err) {
       setIsRecording(false);
       setRecordingInstance(null);
+      void logError('ai_voice', err, 'Voice query transcription/generation failure');
+
+      const wisdomIndex = Math.floor(Math.random() * TRANSIT_WISDOM_FALLBACKS.length);
       const errMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Could not transcribe audio. Please try typing your question.',
+        content:
+          `🎤 Voice query could not be processed. Here's a Transit Wisdom tip instead:\n\n` +
+          TRANSIT_WISDOM_FALLBACKS[wisdomIndex],
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errMsg]);
@@ -392,12 +437,15 @@ export default function MetroAIScreen() {
         isVisionAnalysis: true,
       };
       setMessages((prev) => [...prev, aiMsg]);
-    } catch {
+    } catch (err) {
       setScanningImageId(null);
+      void logError('ai_vision', err, 'Image library vision analysis failure');
       const errMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Could not analyze the image. Please try again.',
+        content:
+          `📸 Vision analysis temporarily unavailable.\n\n` +
+          TRANSIT_WISDOM_FALLBACKS[Math.floor(Math.random() * TRANSIT_WISDOM_FALLBACKS.length)],
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errMsg]);
@@ -442,12 +490,15 @@ export default function MetroAIScreen() {
         isVisionAnalysis: true,
       };
       setMessages((prev) => [...prev, aiMsg]);
-    } catch {
+    } catch (err) {
       setScanningImageId(null);
+      void logError('ai_vision', err, 'Camera live vision analysis failure');
       const errMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Could not analyze the image. Please try again.',
+        content:
+          `📷 Live vision analysis temporarily unavailable.\n\n` +
+          TRANSIT_WISDOM_FALLBACKS[Math.floor(Math.random() * TRANSIT_WISDOM_FALLBACKS.length)],
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errMsg]);
@@ -581,7 +632,7 @@ export default function MetroAIScreen() {
               <Text style={styles.headerTitle}>MetroAI</Text>
               {isLiveData && <LiveDataBadge visible compact />}
             </View>
-            <Text style={styles.headerSubtitle}>Rail Network Specialist · LRT-1 · MRT-3 · LRT-2</Text>
+            <Text style={styles.headerSubtitle}>Neural Rail Intelligence · LRT-1 · MRT-3 · LRT-2</Text>
           </View>
         </View>
         <View style={styles.freeAccessBadge}>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { logError } from './errorLogger';
 
 // ── AsyncStorage Keys ──────────────────────────────────────────────────────
 const KEYS = {
@@ -43,10 +44,15 @@ export interface TransitDataSyncState {
   cloudStations: CloudStation[] | null;
   cloudFareMatrix: CloudFareEntry[] | null;
   triggerSync: () => void;
+  /** Seconds since last successful sync (null if never synced) */
+  secondsSinceSync: number | null;
 }
 
 // ── Cache TTL: 15 minutes ──────────────────────────────────────────────────
 const SYNC_TTL_MS = 15 * 60 * 1000;
+
+// ── Real-time polling interval: 5 minutes ─────────────────────────────────
+const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 // ── Load cached data from AsyncStorage ────────────────────────────────────
 async function loadCachedData(): Promise<{
@@ -91,6 +97,7 @@ export function useTransitDataSync(): TransitDataSyncState {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [cloudStations, setCloudStations] = useState<CloudStation[] | null>(null);
   const [cloudFareMatrix, setCloudFareMatrix] = useState<CloudFareEntry[] | null>(null);
+  const [secondsSinceSync, setSecondsSinceSync] = useState<number | null>(null);
   const isMounted = useRef(true);
   const isSyncing = useRef(false);
 
@@ -109,6 +116,14 @@ export function useTransitDataSync(): TransitDataSyncState {
     });
     return () => { cancelled = true; };
   }, []);
+
+  // ── Live seconds-since-sync ticker ────────────────────────────────────────
+  useEffect(() => {
+    const ticker = setInterval(() => {
+      setSecondsSinceSync(lastSync ? Math.floor((Date.now() - lastSync.getTime()) / 1000) : null);
+    }, 1000);
+    return () => clearInterval(ticker);
+  }, [lastSync]);
 
   const runSync = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase || isSyncing.current) return;
@@ -143,25 +158,25 @@ export function useTransitDataSync(): TransitDataSyncState {
           setSyncStatus('success');
         }
       }
-    } catch {
+    } catch (err) {
       if (isMounted.current) {
         setSyncStatus('error');
         // Keep existing cached data — offline-first
       }
+      // Log sync failure for monitoring
+      void logError('sync_error', err, 'Supabase transit data sync failure');
     } finally {
       isSyncing.current = false;
     }
   }, []);
 
-  // Background sync on mount
+  // Background sync on mount — deferred so UI renders first
   useEffect(() => {
     isMounted.current = true;
 
-    // Check if cache is stale before syncing
     loadCachedData().then(({ lastSync: cached }) => {
       const isStale = !cached || Date.now() - cached.getTime() > SYNC_TTL_MS;
       if (isStale) {
-        // Defer slightly so UI renders first (non-blocking)
         const timer = setTimeout(runSync, 2000);
         return () => clearTimeout(timer);
       }
@@ -172,6 +187,17 @@ export function useTransitDataSync(): TransitDataSyncState {
     };
   }, [runSync]);
 
+  // ── Real-time polling: refresh every POLL_INTERVAL_MS ─────────────────────
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isMounted.current) {
+        runSync();
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [runSync]);
+
   return {
     isLiveData,
     lastSync,
@@ -179,6 +205,7 @@ export function useTransitDataSync(): TransitDataSyncState {
     cloudStations,
     cloudFareMatrix,
     triggerSync: runSync,
+    secondsSinceSync,
   };
 }
 

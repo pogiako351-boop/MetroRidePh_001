@@ -71,7 +71,7 @@ function getProactiveTip(hour: number, hasAlerts: boolean): { text: string; icon
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { isLiveData, lastSync } = useTransitDataSync();
+  const { isLiveData, lastSync, syncStatus, secondsSinceSync } = useTransitDataSync();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Station[]>([]);
   const [recentStations, setRecentStations] = useState<Station[]>([]);
@@ -96,6 +96,8 @@ export default function DashboardScreen() {
   const meshAnim1 = useRef(new RNAnimated.Value(0)).current;
   const meshAnim2 = useRef(new RNAnimated.Value(0)).current;
   const supabasePulse = useRef(new RNAnimated.Value(1)).current;
+  // Neon border breathing for live-data alert cards
+  const liveNeonBorderAnim = useRef(new RNAnimated.Value(0)).current;
 
   const hour = currentTime.getHours();
   const timeTint = getTimeOfDayLabel(hour);
@@ -148,6 +150,22 @@ export default function DashboardScreen() {
     pulse.start();
     return () => pulse.stop();
   }, [supabasePulse]);
+
+  // Neon border breathing animation — active when live data is received
+  useEffect(() => {
+    if (isLiveData) {
+      const breath = RNAnimated.loop(
+        RNAnimated.sequence([
+          RNAnimated.timing(liveNeonBorderAnim, { toValue: 1, duration: 1600, useNativeDriver: false }),
+          RNAnimated.timing(liveNeonBorderAnim, { toValue: 0, duration: 1600, useNativeDriver: false }),
+        ])
+      );
+      breath.start();
+      return () => breath.stop();
+    } else {
+      liveNeonBorderAnim.setValue(0);
+    }
+  }, [isLiveData, liveNeonBorderAnim]);
 
   // Animated mesh gradient drift
   useEffect(() => {
@@ -334,15 +352,42 @@ export default function DashboardScreen() {
               <Text style={styles.railTagline}>Elite Rail Engine · LRT-1 · MRT-3 · LRT-2</Text>
               <Text style={styles.dateText}>{timeTint.emoji} {formatDate(currentTime)}</Text>
 
-              {/* Verified via Supabase dot */}
+              {/* Connection Diagnostic Indicator — Live vs Syncing */}
               <View style={styles.supabaseRow}>
                 <View style={styles.supabaseDotWrapper}>
                   <RNAnimated.View
                     style={[styles.supabaseDotRing, { transform: [{ scale: supabasePulse }], opacity: supabasePulse.interpolate({ inputRange: [1, 1.5], outputRange: [0.4, 0] }) }]}
                   />
-                  <View style={styles.supabaseDotCore} />
+                  <View style={[
+                    styles.supabaseDotCore,
+                    syncStatus === 'syncing' && { backgroundColor: Colors.amber },
+                    syncStatus === 'error' && { backgroundColor: Colors.error },
+                    syncStatus === 'offline' && { backgroundColor: Colors.textTertiary },
+                  ]} />
                 </View>
-                <Text style={styles.supabaseLabel}>Verified via Supabase</Text>
+                <Text style={[
+                  styles.supabaseLabel,
+                  syncStatus === 'syncing' && { color: Colors.amber },
+                  syncStatus === 'error' && { color: Colors.error },
+                  syncStatus === 'offline' && { color: Colors.textTertiary },
+                ]}>
+                  {syncStatus === 'syncing'
+                    ? 'Syncing...'
+                    : syncStatus === 'error'
+                    ? 'Sync Error — Cached Data'
+                    : syncStatus === 'offline'
+                    ? 'Offline Mode'
+                    : secondsSinceSync !== null && secondsSinceSync < 60
+                    ? '● Live'
+                    : 'Verified via Supabase'}
+                </Text>
+                {syncStatus === 'success' && secondsSinceSync !== null && secondsSinceSync >= 60 && (
+                  <Text style={styles.syncAgeText}>
+                    {secondsSinceSync < 3600
+                      ? `${Math.floor(secondsSinceSync / 60)}m ago`
+                      : `${Math.floor(secondsSinceSync / 3600)}h ago`}
+                  </Text>
+                )}
               </View>
             </View>
             <View style={styles.headerRight}>
@@ -465,26 +510,45 @@ export default function DashboardScreen() {
           </Animated.View>
         )}
 
-        {/* Alert Banner */}
+        {/* Alert Banner — breathing neon border when live data active */}
         {criticalAlerts.length > 0 && (
           <Animated.View entering={FadeInDown.duration(500).delay(300)}>
-            <Pressable
-              onPress={() => router.push('/(tabs)/alerts')}
-              style={({ pressed }) => [styles.alertBanner, pressed && styles.pressed]}
-            >
-              <View style={styles.alertIconContainer}>
-                <Ionicons name="warning" size={20} color={Colors.warning} />
-              </View>
-              <View style={styles.alertBannerContent}>
-                <Text style={styles.alertBannerTitle} numberOfLines={1}>
-                  {criticalAlerts[0].title}
-                </Text>
-                <Text style={styles.alertBannerDesc} numberOfLines={1}>
-                  {criticalAlerts[0].description}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
-            </Pressable>
+            <RNAnimated.View style={[
+              styles.alertBannerWrapper,
+              isLiveData && {
+                borderColor: liveNeonBorderAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['rgba(255,184,0,0.18)', 'rgba(255,184,0,0.55)'],
+                }),
+                shadowOpacity: liveNeonBorderAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.1, 0.4],
+                }),
+              },
+            ]}>
+              <Pressable
+                onPress={() => router.push('/(tabs)/alerts')}
+                style={({ pressed }) => [styles.alertBanner, pressed && styles.pressed]}
+              >
+                <View style={styles.alertIconContainer}>
+                  <Ionicons name="warning" size={20} color={Colors.warning} />
+                </View>
+                <View style={styles.alertBannerContent}>
+                  <Text style={styles.alertBannerTitle} numberOfLines={1}>
+                    {criticalAlerts[0].title}
+                  </Text>
+                  <Text style={styles.alertBannerDesc} numberOfLines={1}>
+                    {criticalAlerts[0].description}
+                  </Text>
+                </View>
+                {isLiveData && (
+                  <View style={styles.livePulseBadge}>
+                    <Text style={styles.livePulseText}>LIVE</Text>
+                  </View>
+                )}
+                <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+              </Pressable>
+            </RNAnimated.View>
           </Animated.View>
         )}
 
@@ -616,7 +680,25 @@ export default function DashboardScreen() {
               ) : communityReports.map((report) => {
                 const cat = REPORT_CATEGORIES[report.category];
                 return (
-                  <View key={report.id} style={styles.reportCard}>
+                  <RNAnimated.View
+                    key={report.id}
+                    style={[
+                      styles.reportCard,
+                      isLiveData && {
+                        borderColor: liveNeonBorderAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['rgba(64,224,255,0.10)', 'rgba(64,224,255,0.40)'],
+                        }),
+                        shadowColor: Colors.electricCyan,
+                        shadowOpacity: liveNeonBorderAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 0.3],
+                        }) as unknown as number,
+                        shadowRadius: 8,
+                        elevation: 4,
+                      },
+                    ]}
+                  >
                     <View style={[styles.reportIconBox, { backgroundColor: cat.color + '20' }]}>
                       <Ionicons
                         name={cat.icon as keyof typeof Ionicons.glyphMap}
@@ -637,7 +719,7 @@ export default function DashboardScreen() {
                       <Ionicons name="arrow-up" size={14} color={Colors.amber} />
                       <Text style={styles.upvoteCount}>{report.upvotes}</Text>
                     </Pressable>
-                  </View>
+                  </RNAnimated.View>
                 );
               })}
             </Animated.View>
@@ -912,6 +994,11 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
     letterSpacing: 0.2,
   },
+  syncAgeText: {
+    fontSize: FontSize.xs,
+    color: Colors.textTertiary,
+    marginLeft: 4,
+  },
   // Proactive Banner
   proactiveBanner: {
     flexDirection: 'row',
@@ -1139,16 +1226,37 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.82,
   },
+  alertBannerWrapper: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,184,0,0.18)',
+    marginBottom: Spacing.lg,
+    shadowColor: Colors.warning,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
   alertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255,184,0,0.06)',
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
-    marginBottom: Spacing.lg,
     gap: Spacing.md,
+  },
+  livePulseBadge: {
+    backgroundColor: 'rgba(64,224,255,0.12)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderWidth: 1,
-    borderColor: 'rgba(255,184,0,0.20)',
+    borderColor: 'rgba(64,224,255,0.30)',
+  },
+  livePulseText: {
+    fontSize: 9,
+    fontWeight: FontWeight.heavy,
+    color: Colors.electricCyan,
+    letterSpacing: 1,
   },
   alertIconContainer: {
     backgroundColor: 'rgba(255,184,0,0.10)',

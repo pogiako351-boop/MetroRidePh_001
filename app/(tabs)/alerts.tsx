@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
+  Animated as RNAnimated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -19,8 +20,12 @@ import { CrowdIndicator } from '@/components/ui/CrowdIndicator';
 import { generateMockAlerts, generateMockCrowdLevels } from '@/utils/mockData';
 import { Alert as AlertType, CrowdLevel, saveCrowdLevels, saveAlerts } from '@/utils/storage';
 import { ALL_STATIONS, LINE_COLORS, LineId } from '@/constants/stations';
+import { useTransitDataSync } from '@/utils/transitDataSync';
 
 type TabView = 'alerts' | 'crowd';
+
+// Real-time poll interval: 45 seconds for crowd & alert data
+const ALERT_POLL_MS = 45 * 1000;
 
 export default function AlertsScreen() {
   const insets = useSafeAreaInsets();
@@ -30,6 +35,23 @@ export default function AlertsScreen() {
   const [crowdLevels, setCrowdLevels] = useState<CrowdLevel[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [crowdFilter, setCrowdFilter] = useState<'all' | LineId>('all');
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const { syncStatus } = useTransitDataSync();
+
+  // Neon border breathing animation for live data cards
+  const neonBorderAnim = useRef(new RNAnimated.Value(0)).current;
+
+  // Start breathing animation
+  useEffect(() => {
+    const breath = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(neonBorderAnim, { toValue: 1, duration: 1800, useNativeDriver: false }),
+        RNAnimated.timing(neonBorderAnim, { toValue: 0, duration: 1800, useNativeDriver: false }),
+      ])
+    );
+    breath.start();
+    return () => breath.stop();
+  }, [neonBorderAnim]);
 
   const loadData = useCallback(() => {
     const newAlerts = generateMockAlerts();
@@ -38,10 +60,17 @@ export default function AlertsScreen() {
     setCrowdLevels(newCrowdLevels);
     saveAlerts(newAlerts);
     saveCrowdLevels(newCrowdLevels);
+    setLastRefresh(new Date());
   }, []);
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  // Real-time polling: refresh alert & crowd data every 45 seconds
+  useEffect(() => {
+    const interval = setInterval(loadData, ALERT_POLL_MS);
+    return () => clearInterval(interval);
   }, [loadData]);
 
   const onRefresh = useCallback(() => {
@@ -49,6 +78,13 @@ export default function AlertsScreen() {
     loadData();
     setTimeout(() => setRefreshing(false), 800);
   }, [loadData]);
+
+  const getRefreshAge = () => {
+    const sec = Math.floor((Date.now() - lastRefresh.getTime()) / 1000);
+    if (sec < 10) return 'Just now';
+    if (sec < 60) return `${sec}s ago`;
+    return `${Math.floor(sec / 60)}m ago`;
+  };
 
   const getSeverityConfig = (severity: string) => {
     switch (severity) {
@@ -95,13 +131,35 @@ export default function AlertsScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          {activeTab === 'alerts' ? 'Live Alerts' : 'Crowd Tracker'}
-        </Text>
+        <View style={styles.headerTitleRow}>
+          <Text style={styles.headerTitle}>
+            {activeTab === 'alerts' ? 'Live Alerts' : 'Crowd Tracker'}
+          </Text>
+          {/* Connection Diagnostic Indicator */}
+          <View style={[
+            styles.connectionBadge,
+            syncStatus === 'syncing' && styles.connectionBadgeSyncing,
+            syncStatus === 'error' && styles.connectionBadgeError,
+          ]}>
+            <View style={[
+              styles.connectionDot,
+              syncStatus === 'syncing' && { backgroundColor: Colors.amber },
+              syncStatus === 'error' && { backgroundColor: Colors.error },
+              syncStatus === 'offline' && { backgroundColor: Colors.textTertiary },
+            ]} />
+            <Text style={[
+              styles.connectionText,
+              syncStatus === 'syncing' && { color: Colors.amber },
+              syncStatus === 'error' && { color: Colors.error },
+            ]}>
+              {syncStatus === 'syncing' ? 'Syncing...' : syncStatus === 'error' ? 'Cached' : 'Live'}
+            </Text>
+          </View>
+        </View>
         <Text style={styles.headerSubtitle}>
           {activeTab === 'alerts'
-            ? `${alerts.length} active alerts`
-            : 'Real-time station crowding'}
+            ? `${alerts.length} active alerts · Updated ${getRefreshAge()}`
+            : `Real-time station crowding · Updated ${getRefreshAge()}`}
         </Text>
       </View>
 
@@ -152,33 +210,51 @@ export default function AlertsScreen() {
               const config = getSeverityConfig(alert.severity);
               return (
                 <Animated.View key={alert.id} entering={FadeInDown.duration(400).delay(index * 80)}>
-                  <Card style={[styles.alertCard, { borderLeftColor: config.color, borderLeftWidth: 4 }]}>
-                    <View style={styles.alertHeader}>
-                      <View style={[styles.alertIcon, { backgroundColor: config.bg }]}>
-                        <Ionicons name={config.icon} size={18} color={config.color} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.alertTitle}>{alert.title}</Text>
-                        <View style={styles.alertMetaRow}>
-                          <Badge
-                            text={alert.line}
-                            variant={
-                              alert.line === 'MRT-3'
-                                ? 'mrt3'
-                                : alert.line === 'LRT-1'
-                                ? 'lrt1'
-                                : alert.line === 'LRT-2'
-                                ? 'lrt2'
-                                : 'info'
-                            }
-                            small
-                          />
-                          <Text style={styles.alertTime}>{timeAgo(alert.createdAt)}</Text>
+                  <RNAnimated.View style={[
+                    styles.alertCardWrapper,
+                    {
+                      borderColor: neonBorderAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [config.color + '25', config.color + '70'],
+                      }),
+                      shadowColor: config.color,
+                      shadowOpacity: neonBorderAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.05, 0.25],
+                      }) as unknown as number,
+                      shadowRadius: 10,
+                      shadowOffset: { width: 0, height: 0 },
+                      elevation: 4,
+                    },
+                  ]}>
+                    <Card style={[styles.alertCard, { borderLeftColor: config.color, borderLeftWidth: 4 }]}>
+                      <View style={styles.alertHeader}>
+                        <View style={[styles.alertIcon, { backgroundColor: config.bg }]}>
+                          <Ionicons name={config.icon} size={18} color={config.color} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.alertTitle}>{alert.title}</Text>
+                          <View style={styles.alertMetaRow}>
+                            <Badge
+                              text={alert.line}
+                              variant={
+                                alert.line === 'MRT-3'
+                                  ? 'mrt3'
+                                  : alert.line === 'LRT-1'
+                                  ? 'lrt1'
+                                  : alert.line === 'LRT-2'
+                                  ? 'lrt2'
+                                  : 'info'
+                              }
+                              small
+                            />
+                            <Text style={styles.alertTime}>{timeAgo(alert.createdAt)}</Text>
+                          </View>
                         </View>
                       </View>
-                    </View>
-                    <Text style={styles.alertDescription}>{alert.description}</Text>
-                  </Card>
+                      <Text style={styles.alertDescription}>{alert.description}</Text>
+                    </Card>
+                  </RNAnimated.View>
                 </Animated.View>
               );
             })}
@@ -290,16 +366,58 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.sm,
   },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   headerTitle: {
     fontSize: FontSize.xxxl,
     fontWeight: FontWeight.heavy,
     color: Colors.text,
     letterSpacing: -0.5,
+    flex: 1,
+  },
+  connectionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(64,224,255,0.10)',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.25)',
+  },
+  connectionBadgeSyncing: {
+    backgroundColor: 'rgba(255,184,0,0.10)',
+    borderColor: 'rgba(255,184,0,0.25)',
+  },
+  connectionBadgeError: {
+    backgroundColor: 'rgba(255,68,68,0.10)',
+    borderColor: 'rgba(255,68,68,0.25)',
+  },
+  connectionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.electricCyan,
+  },
+  connectionText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.semibold,
+    color: Colors.electricCyan,
   },
   headerSubtitle: {
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
     marginTop: 2,
+  },
+  alertCardWrapper: {
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    marginBottom: Spacing.sm,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -339,8 +457,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xxxl * 2,
   },
   alertCard: {
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.xl,
   },
   alertHeader: {
     flexDirection: 'row',
