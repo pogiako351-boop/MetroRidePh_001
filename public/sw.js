@@ -9,7 +9,7 @@
  *  - Community Reports UI: Cached for offline viewing
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const SHELL_CACHE    = `metroride-shell-${CACHE_VERSION}`;
 const ASSETS_CACHE   = `metroride-assets-${CACHE_VERSION}`;
 const DATA_CACHE     = `metroride-data-${CACHE_VERSION}`;
