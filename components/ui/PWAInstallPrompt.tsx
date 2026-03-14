@@ -3,7 +3,8 @@
  *
  * Premium-styled glass notification that suggests users install MetroRide PH
  * to their home screen. Handles both the Chrome/Android `beforeinstallprompt`
- * event and the manual iOS Safari share-sheet flow.
+ * event (via the shared `usePWAInstall` hook) and the manual iOS Safari
+ * share-sheet flow.
  *
  * Only renders on web. Automatically dismissed once the user installs,
  * declines, or if they are already running in standalone mode.
@@ -28,46 +29,41 @@ import {
   FontWeight,
   Spacing,
 } from '@/constants/theme';
+import { usePWAInstall, PWA_INSTALL_DISMISSED_KEY } from '@/utils/pwaInstall';
 
-const DISMISSED_KEY = '@metroride_pwa_prompt_dismissed';
+const BOTTOM_SHEET_DISMISSED_KEY = '@metroride_pwa_prompt_dismissed';
 
-// How long (ms) to wait after mount before showing the prompt
+// How long (ms) to wait after mount before showing the bottom sheet
 const SHOW_DELAY_MS = 4000;
-
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-  prompt(): Promise<void>;
-}
 
 export function PWAInstallPrompt() {
   const insets = useSafeAreaInsets();
+  const { isInstallable, isStandalone, triggerInstall } = usePWAInstall();
   const [visible, setVisible] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
-  const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null);
 
   const slideY = useRef(new Animated.Value(160)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Only relevant on web
     if (Platform.OS !== 'web') return;
 
     // Don't show if already running as an installed PWA
-    if (
-      window.matchMedia?.('(display-mode: standalone)').matches ||
-      (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-    ) {
-      return;
-    }
+    if (isStandalone) return;
 
     const iosDevice = /iPhone|iPad|iPod/.test(navigator.userAgent);
     const safariOnly =
       iosDevice && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     setIsIOS(iosDevice);
 
-    AsyncStorage.getItem(DISMISSED_KEY).then((dismissed) => {
-      if (dismissed) return;
+    // Check both the old dismissed key and the new shared key
+    Promise.all([
+      AsyncStorage.getItem(BOTTOM_SHEET_DISMISSED_KEY),
+      AsyncStorage.getItem(PWA_INSTALL_DISMISSED_KEY),
+    ]).then(([bottomDismissed, sharedDismissed]) => {
+      if (bottomDismissed || sharedDismissed) return;
 
       const show = () => {
         setVisible(true);
@@ -86,46 +82,47 @@ export function PWAInstallPrompt() {
         ]).start();
       };
 
-      // Chrome / Android — listen for the native install prompt
-      const promptHandler = (e: Event) => {
-        e.preventDefault();
-        deferredPrompt.current = e as BeforeInstallPromptEvent;
-        setTimeout(show, SHOW_DELAY_MS);
-      };
-      window.addEventListener('beforeinstallprompt', promptHandler);
-
-      // iOS Safari — show manual guide (no native prompt available)
-      if (safariOnly) {
-        const timer = setTimeout(show, SHOW_DELAY_MS + 1000);
-        return () => {
-          clearTimeout(timer);
-          window.removeEventListener('beforeinstallprompt', promptHandler);
-        };
+      if (isInstallable) {
+        // Chrome/Android — show after delay since banner already appeared
+        showTimer.current = setTimeout(show, SHOW_DELAY_MS);
+      } else if (safariOnly) {
+        // iOS Safari — show manual guide (no native prompt available)
+        showTimer.current = setTimeout(show, SHOW_DELAY_MS + 1000);
       }
-
-      return () => window.removeEventListener('beforeinstallprompt', promptHandler);
     });
-  }, [slideY, opacity]);
+
+    return () => {
+      if (showTimer.current) clearTimeout(showTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInstallable, isStandalone]);
+
+  // If installability is lost externally, hide the sheet
+  useEffect(() => {
+    if (!isInstallable && visible && !isIOS) {
+      dismiss(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInstallable]);
 
   const dismiss = (persist = true) => {
+    if (showTimer.current) clearTimeout(showTimer.current);
     Animated.parallel([
       Animated.timing(slideY, { toValue: 160, duration: 280, useNativeDriver: true }),
       Animated.timing(opacity, { toValue: 0, duration: 280, useNativeDriver: true }),
     ]).start(() => setVisible(false));
-    if (persist) AsyncStorage.setItem(DISMISSED_KEY, 'true');
+    if (persist) {
+      AsyncStorage.setItem(BOTTOM_SHEET_DISMISSED_KEY, 'true').catch(() => {});
+    }
   };
 
   const handleInstall = async () => {
-    if (deferredPrompt.current) {
-      await deferredPrompt.current.prompt();
-      const { outcome } = await deferredPrompt.current.userChoice;
-      deferredPrompt.current = null;
-      if (outcome === 'accepted') {
-        dismiss(true);
-        return;
-      }
-    }
+    const outcome = await triggerInstall();
     dismiss(true);
+    if (outcome === 'accepted') {
+      // Installed successfully — also set shared key
+      AsyncStorage.setItem(PWA_INSTALL_DISMISSED_KEY, 'installed').catch(() => {});
+    }
   };
 
   if (!visible || Platform.OS !== 'web') return null;

@@ -16,6 +16,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius, Shadow } from '@/constants/theme';
 import { hapticLight, hapticSuccess } from '@/utils/haptics';
+import { usePWAInstall } from '@/utils/pwaInstall';
 
 const KEYS = {
   QUIET_HOURS_ENABLED: '@metroride_quiet_hours_enabled',
@@ -42,6 +43,8 @@ const LINE_OPTIONS = [
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { isInstallable, isStandalone, triggerInstall } = usePWAInstall();
+  const [installLoading, setInstallLoading] = useState(false);
 
   const [quietEnabled, setQuietEnabled] = useState(false);
   const [quietStart, setQuietStart] = useState(22); // 10 PM
@@ -111,6 +114,16 @@ export default function SettingsScreen() {
       }
     } catch {}
   }, []);
+
+  const handleInstallApp = useCallback(async () => {
+    hapticLight();
+    setInstallLoading(true);
+    try {
+      await triggerInstall();
+    } finally {
+      setInstallLoading(false);
+    }
+  }, [triggerInstall]);
 
   const toggleLine = useCallback((lineId: string) => {
     hapticLight();
@@ -397,6 +410,43 @@ export default function SettingsScreen() {
             </Pressable>
           ))}
         </Animated.View>
+
+        {/* Install App — web only, shown when browser confirms PWA installability */}
+        {Platform.OS === 'web' && isInstallable && !isStandalone && (
+          <Animated.View entering={FadeInDown.duration(500).delay(460)}>
+            <Pressable
+              onPress={handleInstallApp}
+              disabled={installLoading}
+              style={({ pressed }) => [styles.installCard, pressed && styles.pressed]}
+              accessibilityLabel="Install MetroRide PH as a home screen app"
+              accessibilityRole="button"
+            >
+              {/* Neon cyan glow border highlight */}
+              <View style={styles.installCardGlow} pointerEvents="none" />
+
+              <View style={styles.installIconWrap}>
+                <Ionicons
+                  name="phone-portrait-outline"
+                  size={22}
+                  color={Colors.electricCyan}
+                />
+              </View>
+              <View style={styles.installInfo}>
+                <Text style={styles.installTitle}>Install App</Text>
+                <Text style={styles.installDesc}>
+                  Add to home screen — offline access &amp; full-screen experience
+                </Text>
+              </View>
+              <View style={styles.installArrow}>
+                {installLoading ? (
+                  <Ionicons name="ellipsis-horizontal" size={18} color={Colors.electricCyan} />
+                ) : (
+                  <Ionicons name="download-outline" size={20} color={Colors.electricCyan} />
+                )}
+              </View>
+            </Pressable>
+          </Animated.View>
+        )}
 
         {/* Share App */}
         <Animated.View entering={FadeInDown.duration(500).delay(480)}>
@@ -732,6 +782,72 @@ const styles = StyleSheet.create({
   },
   shareArrow: {
     opacity: 0.85,
+  },
+
+  // ── Install App card ───────────────────────────────────────────────────────
+  installCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(13,14,16,0.97)',
+    borderRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.35)',
+    gap: Spacing.md,
+    overflow: 'hidden',
+    // Neon cyan glow shadow
+    shadowColor: Colors.electricCyan,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+
+  installCardGlow: {
+    position: 'absolute',
+    top: -30,
+    left: -30,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: Colors.electricCyan,
+    opacity: 0.05,
+  },
+
+  installIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(64,224,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+
+  installInfo: {
+    flex: 1,
+  },
+
+  installTitle: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.bold,
+    color: Colors.electricCyan,
+    letterSpacing: -0.1,
+  },
+
+  installDesc: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+
+  installArrow: {
+    opacity: 0.9,
+    flexShrink: 0,
   },
   appInfo: {
     alignItems: 'center',

@@ -7,6 +7,7 @@ import { Colors } from '@/constants/theme';
 import { syncOfflineData } from '@/utils/storage';
 import FirstLaunchModal, { checkFirstLaunchAccepted } from '@/components/ui/FirstLaunchModal';
 import { PWAInstallPrompt } from '@/components/ui/PWAInstallPrompt';
+import { PWAInstallBanner } from '@/components/ui/PWAInstallBanner';
 
 const ONBOARDING_DONE_KEY = '@metroride_onboarded';
 
@@ -114,7 +115,10 @@ export default function RootLayout() {
         <FirstLaunchModal visible onAccept={handleTermsAccepted} />
       )}
 
-      {/* PWA install prompt — web only, shown after a brief delay */}
+      {/* PWA top banner — web only, slides in from top when installable */}
+      {hasOnboarded && termsAccepted && <PWAInstallBanner />}
+
+      {/* PWA install prompt — web only, shown as bottom sheet after a brief delay */}
       {hasOnboarded && termsAccepted && <PWAInstallPrompt />}
 
       {/* Light status bar icons for the Neon Onyx dark theme */}
