@@ -13,9 +13,10 @@ export interface FullDiagnosticReport {
   results: DiagnosticResult[];
 }
 
-// ── Test internet connectivity via a fast HEAD request to google.com ─────
-// Returns pass if google.com is reachable; returns a soft-fail otherwise
-// so the caller can upgrade to pass if Supabase is confirmed reachable.
+// ── Test internet connectivity via a HEAD request to google.com ──────────
+// Uses no-cors + no-store to bypass CORS preflight issues in production web
+// deployments.  The check succeeds as long as the fetch promise fulfils —
+// an opaque response is fine because we only care about reachability.
 async function checkInternet(): Promise<DiagnosticResult> {
   const start = Date.now();
   try {
@@ -23,19 +24,22 @@ async function checkInternet(): Promise<DiagnosticResult> {
     const timeout = setTimeout(() => controller.abort(), 5000);
     await fetch('https://www.google.com', {
       method: 'HEAD',
+      // no-cors avoids CORS preflight failures; no-store prevents cached hits
+      // from masking a real connectivity loss.
+      mode: 'no-cors',
+      cache: 'no-store',
       signal: controller.signal,
     });
     clearTimeout(timeout);
+    // Promise fulfilled → internet is reachable (response may be opaque)
     return {
       label: 'Internet Connectivity',
       status: 'pass',
-      detail: 'Reachable (google.com)',
+      detail: `Reachable (${Date.now() - start}ms)`,
       durationMs: Date.now() - start,
     };
   } catch {
-    // google.com fetch failed — mark as fail for now.
-    // runConnectivityDiagnostic() will upgrade this to pass if Supabase
-    // is reachable, implementing the mobile-data-safe heuristic.
+    // Fetch rejected (network error / timeout) → no connectivity
     return {
       label: 'Internet Connectivity',
       status: 'fail',
@@ -95,6 +99,7 @@ async function checkSupabase(): Promise<DiagnosticResult> {
 }
 
 // ── Test Newell AI endpoint ───────────────────────────────────────────────
+// Runs independently of the internet check result; uses proper JSON headers.
 async function checkNewellAI(): Promise<DiagnosticResult> {
   const url = process.env.EXPO_PUBLIC_NEWELL_API_URL;
   if (!url) {
@@ -108,7 +113,14 @@ async function checkNewellAI(): Promise<DiagnosticResult> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
-    await fetch(url, { method: 'HEAD', signal: controller.signal });
+    await fetch(url, {
+      method: 'HEAD',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
     clearTimeout(timeout);
     return {
       label: 'Newell AI Service',
@@ -143,19 +155,15 @@ function checkEnvVars(): DiagnosticResult {
 }
 
 // ── Full diagnostic run ───────────────────────────────────────────────────
-// Internet connectivity is checked FIRST (sequentially) before any backend
-// requests are attempted.  This guarantees we have an accurate picture of
-// network reachability prior to initialising Supabase or Newell connections.
+// All three network checks run in parallel so one failure cannot block the
+// others from reporting their status.  Each check has its own try/catch, so
+// a thrown error in any single check is fully isolated.
 export async function runConnectivityDiagnostic(): Promise<FullDiagnosticReport> {
   const envCheck = checkEnvVars();
 
-  // Step 1: Determine internet status first — backend checks are meaningless
-  // if the device has no network path to the outside world.
-  const internet = await checkInternet();
-
-  // Step 2: Only after we have an internet result, run backend checks.
-  // Running them in parallel with each other is fine — they are independent.
-  const [supabaseCheck, newell] = await Promise.all([
+  // Fire all checks simultaneously — no check depends on another's result.
+  const [internet, supabaseCheck, newell] = await Promise.all([
+    checkInternet(),
     checkSupabase(),
     checkNewellAI(),
   ]);
