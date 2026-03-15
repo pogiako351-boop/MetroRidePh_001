@@ -52,21 +52,25 @@ async function checkInternet(): Promise<DiagnosticResult> {
 }
 
 // ── Test Supabase REST endpoint ───────────────────────────────────────────
-// Uses prioritized env var resolution (standard → NEXT_PUBLIC → EXPO_PUBLIC)
-// so it stays consistent with the Supabase client initialisation.
+// Priority: EXPO_PUBLIC_* → NEXT_PUBLIC_* → bare SUPABASE_*
+// Matches the updated priority order in utils/supabase.ts so the diagnostic
+// always validates the exact same credential that the live client uses.
 // HTTP 401 is explicitly detected and surfaced as 'Missing Config' to prevent
 // it from appearing as a generic network error in the Pulse dashboard.
 async function checkSupabase(): Promise<DiagnosticResult> {
   // Resolve using the same priority order as the Supabase client.
-  const url =
-    process.env.SUPABASE_URL ||
+  const rawUrl =
+    process.env.EXPO_PUBLIC_SUPABASE_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.EXPO_PUBLIC_SUPABASE_URL;
+    process.env.SUPABASE_URL;
+
+  // Enforce https:// — mirrors the normalisation in utils/supabase.ts.
+  const url = rawUrl ? rawUrl.replace(/^http:\/\//i, 'https://') : undefined;
 
   const key =
-    process.env.SUPABASE_ANON_KEY ||
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    process.env.SUPABASE_ANON_KEY;
 
   // Explicit pre-flight validation — report 'Missing Config' before attempting
   // any network handshake so the error origin is unambiguous.
@@ -102,11 +106,14 @@ async function checkSupabase(): Promise<DiagnosticResult> {
     // Explicitly surface a 401 as 'Missing Config' so it is not confused with
     // a generic network error.  A 401 at this endpoint always means the API key
     // was rejected — most likely because it is invalid or was not transmitted.
+    // The first 5 characters of the resolved key are included so the deployment
+    // logs can confirm which production secret was actually read at runtime.
     if (res.status === 401) {
+      const keyHint = key ? `Key: ${key.slice(0, 5)}…` : 'Key: (empty)';
       return {
         label: 'Supabase Reachability',
         status: 'fail',
-        detail: `Missing Config — HTTP 401 Unauthorized via ${SUPABASE_TARGET_REGION} (${durationMs}ms). Verify SUPABASE_ANON_KEY is correct.`,
+        detail: `Missing Config — HTTP 401 Unauthorized via ${SUPABASE_TARGET_REGION} (${durationMs}ms). ${keyHint} — Verify SUPABASE_ANON_KEY is correct.`,
         durationMs,
       };
     }
@@ -220,14 +227,14 @@ function checkEnvVars(): DiagnosticResult {
   const missing: string[] = [];
 
   const hasSupabaseUrl =
-    process.env.SUPABASE_URL ||
+    process.env.EXPO_PUBLIC_SUPABASE_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.EXPO_PUBLIC_SUPABASE_URL;
+    process.env.SUPABASE_URL;
 
   const hasSupabaseKey =
-    process.env.SUPABASE_ANON_KEY ||
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    process.env.SUPABASE_ANON_KEY;
 
   const hasNewellUrl = process.env.EXPO_PUBLIC_NEWELL_API_URL;
 

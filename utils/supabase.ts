@@ -3,19 +3,27 @@ import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ── Prioritized environment variable resolution ───────────────────────────
-// Checks standard → NEXT_PUBLIC → EXPO_PUBLIC prefixes in that order so the
-// client works across React Native (Expo), Next.js, and plain Node environments
-// without requiring separate build configurations.
-const supabaseUrl =
-  process.env.SUPABASE_URL ||
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+// Priority: EXPO_PUBLIC_* → NEXT_PUBLIC_* → bare SUPABASE_*
+// Expo/React Native bundles only inline EXPO_PUBLIC_* at build time, so that
+// prefix is checked first to ensure the correct production secret is read on
+// the live site before falling back to Next.js and plain Node variants.
+const rawSupabaseUrl =
   process.env.EXPO_PUBLIC_SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
   '';
 
+// ── https:// enforcement ──────────────────────────────────────────────────
+// Supabase requires TLS for all API calls. Strip any accidental http:// prefix
+// and re-attach https:// so mis-configured env vars don't cause silent failures.
+const supabaseUrl = rawSupabaseUrl
+  ? rawSupabaseUrl.replace(/^http:\/\//i, 'https://')
+  : '';
+
 const supabaseAnonKey =
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
   '';
 
 // ── Explicit credential validation ───────────────────────────────────────
