@@ -14,17 +14,22 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { runConnectivityDiagnostic, FullDiagnosticReport, DiagnosticResult } from '@/utils/connectivityDiagnostic';
-import { isSupabaseConfigured, SUPABASE_TARGET_REGION } from '@/utils/supabase';
+import { supabaseConfigStatus, SUPABASE_TARGET_REGION, PRODUCTION_ORIGIN } from '@/utils/supabase';
 
 const STATUS_CONFIG = {
   pass: { icon: 'checkmark-circle', color: '#34A853', label: 'Pass' },
   fail: { icon: 'close-circle', color: '#EA4335', label: 'Fail' },
   warn: { icon: 'warning', color: '#F59E0B', label: 'Warning' },
   checking: { icon: 'time', color: '#1A73E8', label: 'Checking' },
+  // 'waiting' indicates a check was intentionally deferred because a
+  // prerequisite (Supabase auth) has not yet succeeded — not a real failure.
+  waiting: { icon: 'hourglass-outline', color: '#8B5CF6', label: 'Waiting for Auth' },
 } as const;
 
 const OVERALL_CONFIG = {
-  healthy: { color: '#34A853', icon: 'shield-checkmark', label: 'All Systems Healthy' },
+  // 'healthy' (All Green) is only reached when config AND connectivity are both
+  // validated for the production environment — stale partial passes are blocked.
+  healthy: { color: '#34A853', icon: 'shield-checkmark', label: 'All Green · Production Validated' },
   degraded: { color: '#F59E0B', icon: 'warning', label: 'Service Degraded' },
   critical: { color: '#EA4335', icon: 'alert-circle', label: 'Critical Issues Detected' },
 };
@@ -102,7 +107,7 @@ export default function DiagnosticsScreen() {
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>System Health Check</Text>
             <Text style={styles.infoSub}>
-              Verifies connectivity to Internet, Supabase ({SUPABASE_TARGET_REGION}), and Newell AI services
+              Verifies configuration and connectivity for Internet, Supabase ({SUPABASE_TARGET_REGION}), and Newell AI — All Green requires both config and connectivity to be validated
             </Text>
           </View>
         </View>
@@ -110,15 +115,26 @@ export default function DiagnosticsScreen() {
         {/* Config summary */}
         <View style={styles.configCard}>
           <Text style={styles.configTitle}>Configuration</Text>
-          <View style={styles.configRow}>
-            <Text style={styles.configKey}>Supabase</Text>
-            <View style={[styles.configStatus, { backgroundColor: isSupabaseConfigured ? 'rgba(52,168,83,0.15)' : 'rgba(234,67,53,0.15)' }]}>
-              <View style={[styles.configDot, { backgroundColor: isSupabaseConfigured ? '#34A853' : '#EA4335' }]} />
-              <Text style={[styles.configStatusText, { color: isSupabaseConfigured ? '#34A853' : '#EA4335' }]}>
-                {isSupabaseConfigured ? 'Configured' : 'Not configured'}
-              </Text>
-            </View>
-          </View>
+
+          {/* Supabase — three-state: configured / missing-config / unconfigured */}
+          {(() => {
+            const cfg =
+              supabaseConfigStatus === 'configured'
+                ? { color: '#34A853', bg: 'rgba(52,168,83,0.15)', label: 'Configured' }
+                : supabaseConfigStatus === 'missing-config'
+                  ? { color: '#F59E0B', bg: 'rgba(245,158,11,0.15)', label: 'Missing Config' }
+                  : { color: '#EA4335', bg: 'rgba(234,67,53,0.15)', label: 'Not configured' };
+            return (
+              <View style={styles.configRow}>
+                <Text style={styles.configKey}>Supabase</Text>
+                <View style={[styles.configStatus, { backgroundColor: cfg.bg }]}>
+                  <View style={[styles.configDot, { backgroundColor: cfg.color }]} />
+                  <Text style={[styles.configStatusText, { color: cfg.color }]}>{cfg.label}</Text>
+                </View>
+              </View>
+            );
+          })()}
+
           <View style={styles.configRow}>
             <Text style={styles.configKey}>Newell AI</Text>
             <View style={[styles.configStatus, { backgroundColor: process.env.EXPO_PUBLIC_NEWELL_API_URL ? 'rgba(52,168,83,0.15)' : 'rgba(234,67,53,0.15)' }]}>
@@ -128,12 +144,23 @@ export default function DiagnosticsScreen() {
               </Text>
             </View>
           </View>
-          <View style={[styles.configRow, { borderBottomWidth: 0 }]}>
+
+          <View style={styles.configRow}>
             <Text style={styles.configKey}>Region Routing</Text>
             <View style={[styles.configStatus, { backgroundColor: 'rgba(52,168,83,0.15)' }]}>
               <View style={[styles.configDot, { backgroundColor: '#34A853' }]} />
               <Text style={[styles.configStatusText, { color: '#34A853' }]}>
-                {SUPABASE_TARGET_REGION} · Live
+                {SUPABASE_TARGET_REGION} · Hardcoded
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.configRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.configKey}>Production Origin</Text>
+            <View style={[styles.configStatus, { backgroundColor: 'rgba(26,115,232,0.12)' }]}>
+              <View style={[styles.configDot, { backgroundColor: '#1A73E8' }]} />
+              <Text style={[styles.configStatusText, { color: '#1A73E8' }]} numberOfLines={1}>
+                {PRODUCTION_ORIGIN.replace('https://', '')}
               </Text>
             </View>
           </View>
@@ -177,23 +204,12 @@ export default function DiagnosticsScreen() {
               </View>
             </View>
 
-            {/* Individual results — Internet Connectivity is forced green
-                whenever Supabase Reachability is green to prevent false
-                'Fail' reports on mobile data / restricted networks. */}
-            {report.results.map((r) => {
-              const supabasePass = report.results.find(
-                (x) => x.label === 'Supabase Reachability'
-              )?.status === 'pass';
-              const displayResult =
-                r.label === 'Internet Connectivity' && supabasePass && r.status !== 'pass'
-                  ? {
-                      ...r,
-                      status: 'pass' as const,
-                      detail: 'Verified via Supabase (mobile data / restricted network)',
-                    }
-                  : r;
-              return <ResultCard key={r.label} result={displayResult} />;
-            })}
+            {/* Individual results — resolved by connectivityDiagnostic utility:
+                • Internet is forced green when Supabase is reachable (mobile data heuristic)
+                • Newell AI shows 'Waiting for Auth' when Supabase has a 401/config error */}
+            {report.results.map((r) => (
+              <ResultCard key={r.label} result={r} />
+            ))}
 
             {/* Recommendation */}
             {report.overallStatus !== 'healthy' && (
@@ -201,8 +217,10 @@ export default function DiagnosticsScreen() {
                 <Ionicons name="bulb" size={18} color="#F59E0B" />
                 <Text style={styles.recText}>
                   {report.overallStatus === 'critical'
-                    ? 'Multiple services are unreachable. Check your internet connection and ensure all environment variables are configured.'
-                    : 'Some services may be limited. The app will use cached data for offline operation. Connect Supabase for full cloud sync.'}
+                    ? 'Critical: Multiple services are unreachable or misconfigured. Verify all SUPABASE_URL / SUPABASE_ANON_KEY variants are set and your internet connection is active.'
+                    : report.results.some((r) => r.detail.toLowerCase().includes('missing config'))
+                      ? 'Missing Config detected — ensure SUPABASE_URL and SUPABASE_ANON_KEY are set (check SUPABASE_*, NEXT_PUBLIC_*, and EXPO_PUBLIC_* prefix variants). A correct API key is required to clear the 401 and unblock downstream AI checks.'
+                      : 'Some services may be limited. The app will use cached data for offline operation. Connect Supabase for full cloud sync.'}
                 </Text>
               </View>
             )}

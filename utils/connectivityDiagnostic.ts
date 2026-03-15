@@ -1,8 +1,10 @@
-import { isSupabaseConfigured, SUPABASE_TARGET_REGION } from './supabase';
+import { isSupabaseConfigured, SUPABASE_TARGET_REGION, supabaseConfigStatus } from './supabase';
 
 export interface DiagnosticResult {
   label: string;
-  status: 'pass' | 'fail' | 'warn' | 'checking';
+  // 'waiting' indicates the check was intentionally deferred because a
+  // prerequisite service (e.g. Supabase auth) has not yet succeeded.
+  status: 'pass' | 'fail' | 'warn' | 'checking' | 'waiting';
   detail: string;
   durationMs?: number;
 }
@@ -50,18 +52,33 @@ async function checkInternet(): Promise<DiagnosticResult> {
 }
 
 // ── Test Supabase REST endpoint ───────────────────────────────────────────
-// Includes the sin-1 region routing target in the result detail so the Pulse
-// diagnostic surface confirms the correct CDN edge is being targeted.
+// Uses prioritized env var resolution (standard → NEXT_PUBLIC → EXPO_PUBLIC)
+// so it stays consistent with the Supabase client initialisation.
+// HTTP 401 is explicitly detected and surfaced as 'Missing Config' to prevent
+// it from appearing as a generic network error in the Pulse dashboard.
 async function checkSupabase(): Promise<DiagnosticResult> {
-  if (!isSupabaseConfigured) {
+  // Resolve using the same priority order as the Supabase client.
+  const url =
+    process.env.SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.EXPO_PUBLIC_SUPABASE_URL;
+
+  const key =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Explicit pre-flight validation — report 'Missing Config' before attempting
+  // any network handshake so the error origin is unambiguous.
+  if (!url || !key) {
+    const missingField = !url ? 'SUPABASE_URL' : 'SUPABASE_ANON_KEY';
     return {
       label: 'Supabase Reachability',
-      status: 'warn',
-      detail: 'Not configured (EXPO_PUBLIC_SUPABASE_URL missing)',
+      status: 'fail',
+      detail: `Missing Config — ${missingField} not resolved across any prefix variant. Cannot authenticate.`,
     };
   }
 
-  const url = process.env.EXPO_PUBLIC_SUPABASE_URL!;
   const start = Date.now();
   try {
     const controller = new AbortController();
@@ -69,8 +86,10 @@ async function checkSupabase(): Promise<DiagnosticResult> {
     const res = await fetch(`${url}/rest/v1/`, {
       method: 'HEAD',
       headers: {
-        apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
-        Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? ''}`,
+        // Explicit auth headers ensure the correct anon key is always sent,
+        // regardless of any cached or ambient tokens in the environment.
+        apikey: key,
+        Authorization: `Bearer ${key}`,
         // Region-routing hint — targets the Singapore (sin-1) CDN edge node
         // for lower latency from the Philippines.
         'x-client-region': SUPABASE_TARGET_REGION,
@@ -79,6 +98,19 @@ async function checkSupabase(): Promise<DiagnosticResult> {
     });
     clearTimeout(timeout);
     const durationMs = Date.now() - start;
+
+    // Explicitly surface a 401 as 'Missing Config' so it is not confused with
+    // a generic network error.  A 401 at this endpoint always means the API key
+    // was rejected — most likely because it is invalid or was not transmitted.
+    if (res.status === 401) {
+      return {
+        label: 'Supabase Reachability',
+        status: 'fail',
+        detail: `Missing Config — HTTP 401 Unauthorized via ${SUPABASE_TARGET_REGION} (${durationMs}ms). Verify SUPABASE_ANON_KEY is correct.`,
+        durationMs,
+      };
+    }
+
     if (res.ok || res.status === 200 || res.status === 404) {
       return {
         label: 'Supabase Reachability',
@@ -87,6 +119,7 @@ async function checkSupabase(): Promise<DiagnosticResult> {
         durationMs,
       };
     }
+
     return {
       label: 'Supabase Reachability',
       status: 'warn',
@@ -130,10 +163,9 @@ async function attemptNewellAI(
 }
 
 // ── Test Newell AI endpoint ───────────────────────────────────────────────
-// Uses a 2-second timeout per attempt.  If the first attempt fails (e.g. the
-// reported ~905 ms response spikes past the limit) the check retries once
-// after a 400 ms back-off before reporting failure.  This prevents transient
-// latency spikes from producing false 'Fail' status in the Pulse dashboard.
+// Uses a 2-second timeout per attempt.  If the first attempt fails the check
+// retries once after a 400 ms back-off before reporting failure.  This prevents
+// transient latency spikes from producing false 'Fail' status in Pulse.
 async function checkNewellAI(): Promise<DiagnosticResult> {
   const url = process.env.EXPO_PUBLIC_NEWELL_API_URL;
   if (!url) {
@@ -181,25 +213,57 @@ async function checkNewellAI(): Promise<DiagnosticResult> {
 }
 
 // ── Check environment variables ───────────────────────────────────────────
+// Checks all three prefix variants (standard, NEXT_PUBLIC, EXPO_PUBLIC) for
+// each required variable so the report accurately reflects whether credentials
+// are resolvable in the current build environment.
 function checkEnvVars(): DiagnosticResult {
   const missing: string[] = [];
-  if (!process.env.EXPO_PUBLIC_SUPABASE_URL) missing.push('SUPABASE_URL');
-  if (!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY) missing.push('SUPABASE_ANON_KEY');
-  if (!process.env.EXPO_PUBLIC_NEWELL_API_URL) missing.push('NEWELL_API_URL');
+
+  const hasSupabaseUrl =
+    process.env.SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.EXPO_PUBLIC_SUPABASE_URL;
+
+  const hasSupabaseKey =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+  const hasNewellUrl = process.env.EXPO_PUBLIC_NEWELL_API_URL;
+
+  if (!hasSupabaseUrl) missing.push('SUPABASE_URL');
+  if (!hasSupabaseKey) missing.push('SUPABASE_ANON_KEY');
+  if (!hasNewellUrl)   missing.push('NEWELL_API_URL');
 
   if (missing.length === 0) {
-    return { label: 'Environment Variables', status: 'pass', detail: 'All required vars present' };
+    return {
+      label: 'Environment Variables',
+      status: 'pass',
+      detail: 'All required vars present',
+    };
   }
+
+  const missingDetail = `Missing Config — ${missing.join(', ')} not resolved across any prefix variant`;
   if (missing.length <= 2) {
-    return { label: 'Environment Variables', status: 'warn', detail: `Missing: ${missing.join(', ')}` };
+    return { label: 'Environment Variables', status: 'warn', detail: missingDetail };
   }
-  return { label: 'Environment Variables', status: 'fail', detail: `Missing: ${missing.join(', ')}` };
+  return { label: 'Environment Variables', status: 'fail', detail: missingDetail };
+}
+
+// ── Determine whether a Supabase result indicates an auth/config blockage ─
+// Used to decide whether downstream Newell AI results should transition to
+// 'Waiting for Auth' rather than 'Fail' to prevent cascading error flags.
+function isSupabaseAuthBlocked(result: DiagnosticResult): boolean {
+  if (result.status !== 'fail') return false;
+  const d = result.detail.toLowerCase();
+  return d.includes('401') || d.includes('missing config') || d.includes('cannot authenticate');
 }
 
 // ── Full diagnostic run ───────────────────────────────────────────────────
 // All three network checks run in parallel so one failure cannot block the
-// others from reporting their status.  Each check has its own try/catch, so
-// a thrown error in any single check is fully isolated.
+// others from reporting their status.  Post-processing then applies the
+// Newell AI 'Waiting for Auth' cascade rule and resolves the internet
+// heuristic before calculating the final overall health status.
 export async function runConnectivityDiagnostic(): Promise<FullDiagnosticReport> {
   const envCheck = checkEnvVars();
 
@@ -224,16 +288,45 @@ export async function runConnectivityDiagnostic(): Promise<FullDiagnosticReport>
         }
       : internet;
 
-  const results = [envCheck, resolvedInternet, supabaseCheck, newell];
+  // ── Newell AI cascade rule ────────────────────────────────────────────────
+  // If Supabase failed due to a 401 or missing-config condition, the Newell AI
+  // check is deferred rather than marked 'Fail'.  This prevents a Supabase auth
+  // issue from producing a misleading second failure flag in the Pulse dashboard.
+  const resolvedNewell: DiagnosticResult =
+    isSupabaseAuthBlocked(supabaseCheck) && newell.status === 'fail'
+      ? {
+          label: 'Newell AI Service',
+          status: 'waiting',
+          detail:
+            'Waiting for Auth — Supabase authentication must succeed before the AI service can be validated',
+          durationMs: newell.durationMs,
+        }
+      : newell;
+
+  const results = [envCheck, resolvedInternet, supabaseCheck, resolvedNewell];
+
+  // 'waiting' is intentionally excluded from fail/warn counts — it is a
+  // deferred state, not an independent failure.
   const failCount = results.filter((r) => r.status === 'fail').length;
   const warnCount = results.filter((r) => r.status === 'warn').length;
 
-  const overallStatus =
+  // ── Strict 'All Green' gate ───────────────────────────────────────────────
+  // 'healthy' (All Green) is only reached when BOTH of the following are true:
+  //   1. Configuration is validated — all required env vars are present.
+  //   2. Connectivity is confirmed — Supabase is reachable and responding.
+  // Any fail or 2+ warn results, OR unvalidated config/connectivity, yields
+  // 'degraded' or 'critical' instead.
+  const isConfigValid       = envCheck.status === 'pass';
+  const isConnectivityValid = supabaseCheck.status === 'pass' && resolvedInternet.status === 'pass';
+
+  const overallStatus: 'healthy' | 'degraded' | 'critical' =
     failCount >= 2
       ? 'critical'
       : failCount === 1 || warnCount >= 2
         ? 'degraded'
-        : 'healthy';
+        : !isConfigValid || !isConnectivityValid
+          ? 'degraded'  // Connectivity or config not fully validated — not All Green
+          : 'healthy';  // All Green: config present AND connectivity confirmed
 
   return { timestamp: new Date(), overallStatus, results };
 }

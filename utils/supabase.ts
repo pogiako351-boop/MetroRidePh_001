@@ -2,10 +2,41 @@ import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+// ── Prioritized environment variable resolution ───────────────────────────
+// Checks standard → NEXT_PUBLIC → EXPO_PUBLIC prefixes in that order so the
+// client works across React Native (Expo), Next.js, and plain Node environments
+// without requiring separate build configurations.
+const supabaseUrl =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.EXPO_PUBLIC_SUPABASE_URL ||
+  '';
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+const supabaseAnonKey =
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  '';
+
+// ── Explicit credential validation ───────────────────────────────────────
+// Each field is checked independently so partial-configuration ('missing-config')
+// is clearly distinguished from a fully-unconfigured state.  This prevents a
+// generic HTTP 401 from masking a real misconfiguration at boot time.
+export type SupabaseConfigStatus = 'configured' | 'missing-config' | 'unconfigured';
+
+function resolveConfigStatus(url: string, key: string): SupabaseConfigStatus {
+  if (!url && !key) return 'unconfigured';
+  if (!url || !key) return 'missing-config';
+  return 'configured';
+}
+
+export const supabaseConfigStatus: SupabaseConfigStatus = resolveConfigStatus(
+  supabaseUrl,
+  supabaseAnonKey,
+);
+
+// Convenience boolean kept for backwards-compatibility with existing consumers.
+export const isSupabaseConfigured = supabaseConfigStatus === 'configured';
 
 // Target region for low-latency access from the Philippines.
 // Supabase's Cloudflare edge network automatically routes REST API traffic
@@ -14,40 +45,61 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 // routing target and verify the endpoint resolves through that region.
 export const SUPABASE_TARGET_REGION = 'sin-1';
 
-// Safety guard: log a critical error at build/init time if env vars are absent
-if (!isSupabaseConfigured) {
+// Primary production origin for the Philippine market deployment.
+// Included in every request so the Supabase edge can correctly attribute
+// and validate traffic originating from the production web host.
+export const PRODUCTION_ORIGIN = 'https://metrorideph.com';
+
+// Safety guard: report the precise config issue at init time so the root cause
+// surfaces immediately in logs rather than manifesting as a cryptic 401 later.
+if (supabaseConfigStatus === 'unconfigured') {
   console.error(
     '[CRITICAL] Supabase environment variables are missing. ' +
-      'EXPO_PUBLIC_SUPABASE_URL and/or EXPO_PUBLIC_SUPABASE_ANON_KEY are not set. ' +
-      'All database features will be unavailable.',
+      'Set SUPABASE_URL / NEXT_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_URL ' +
+      'and the corresponding ANON_KEY variant. All database features will be unavailable.',
+  );
+} else if (supabaseConfigStatus === 'missing-config') {
+  console.error(
+    '[CRITICAL] Supabase is partially configured — Missing Config. ' +
+      'One of SUPABASE_URL or SUPABASE_ANON_KEY resolved to an empty value. ' +
+      'Verify all three prefix variants (SUPABASE_*, NEXT_PUBLIC_*, EXPO_PUBLIC_*).',
   );
 }
 
 // ── Region-aware custom fetch ─────────────────────────────────────────────
-// Attaches a region-preference hint header so Supabase's CDN edge layer can
-// route the request through the Singapore (sin-1) PoP, minimising round-trip
-// latency for users in the Philippines. This does NOT change the physical
-// database location — it only influences CDN edge selection.
-function createRegionFetch(region: string) {
+// Attaches region-preference and production-origin headers on every request so
+// Supabase's CDN edge routes through Singapore (sin-1) for Philippine users.
+// Also re-injects apikey + Authorization on each call to prevent stale browser
+// session tokens from overriding the anon key in production web deployments.
+function createRegionFetch(region: string, anonKey: string) {
   return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const headers = new Headers(init?.headers);
+    // Singapore (sin-1) CDN edge routing hint — keeps latency low for PH users.
     headers.set('x-client-region', region);
+    // Explicit auth headers — prevents any cached/stale token from taking over.
+    headers.set('apikey', anonKey);
+    headers.set('Authorization', `Bearer ${anonKey}`);
     return fetch(input, { ...init, headers });
   };
 }
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      // Force-inject API key headers on every request so stale browser tokens
-      // can never override them in production web deployments.
+      // Force-inject API key and auth headers on every request so stale browser
+      // tokens can never override them when deployed at the production origin
+      // (https://metrorideph.com).
       global: {
         headers: {
           apikey: supabaseAnonKey,
           Authorization: `Bearer ${supabaseAnonKey}`,
+          // Declare the primary production origin so the Supabase edge can
+          // correctly attribute requests from the Philippine deployment.
+          'x-origin': PRODUCTION_ORIGIN,
         },
         // Route REST requests through the Singapore (sin-1) CDN edge node to
-        // keep latency low for Philippine users.
-        fetch: createRegionFetch(SUPABASE_TARGET_REGION),
+        // keep latency low for Philippine users. The custom fetch also
+        // re-injects auth headers to guard against token override edge-cases.
+        fetch: createRegionFetch(SUPABASE_TARGET_REGION, supabaseAnonKey),
       },
       auth: {
         storage: AsyncStorage,
