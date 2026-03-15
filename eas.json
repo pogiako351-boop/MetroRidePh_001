@@ -12,7 +12,14 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://wgjaepoxjxooxhdainod.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndnamFlcG94anhvb3hoZGFpbm9kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMzc5OTMsImV4cCI6MjA4ODkxMzk5M30.lerwfX9WBx-oDb7CEGsKoDw7AURYBPTX_c3sFcbExpQ",
+        "EXPO_PUBLIC_NEWELL_API_URL": "https://newell.fastshot.ai",
+        "EXPO_PUBLIC_AUTH_BROKER_URL": "https://oauth.fastshot.ai",
+        "EXPO_PUBLIC_PROJECT_ID": "50ef7454-8d87-4e5d-839a-b85e91d350e7"
+      }
     }
   },
   "submit": {

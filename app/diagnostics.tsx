@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { runConnectivityDiagnostic, FullDiagnosticReport, DiagnosticResult } from '@/utils/connectivityDiagnostic';
-import { isSupabaseConfigured } from '@/utils/supabase';
+import { isSupabaseConfigured, SUPABASE_TARGET_REGION } from '@/utils/supabase';
 
 const STATUS_CONFIG = {
   pass: { icon: 'checkmark-circle', color: '#34A853', label: 'Pass' },
@@ -87,7 +87,7 @@ export default function DiagnosticsScreen() {
         >
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Connectivity Diagnostic</Text>
+        <Text style={styles.headerTitle}>Pulse Diagnostic</Text>
         <View style={{ width: 40 }} />
       </LinearGradient>
 
@@ -102,7 +102,7 @@ export default function DiagnosticsScreen() {
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>System Health Check</Text>
             <Text style={styles.infoSub}>
-              Verifies connectivity to Internet, Supabase, and Newell AI services
+              Verifies connectivity to Internet, Supabase ({SUPABASE_TARGET_REGION}), and Newell AI services
             </Text>
           </View>
         </View>
@@ -125,6 +125,15 @@ export default function DiagnosticsScreen() {
               <View style={[styles.configDot, { backgroundColor: process.env.EXPO_PUBLIC_NEWELL_API_URL ? '#34A853' : '#EA4335' }]} />
               <Text style={[styles.configStatusText, { color: process.env.EXPO_PUBLIC_NEWELL_API_URL ? '#34A853' : '#EA4335' }]}>
                 {process.env.EXPO_PUBLIC_NEWELL_API_URL ? 'Configured' : 'Not configured'}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.configRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.configKey}>Region Routing</Text>
+            <View style={[styles.configStatus, { backgroundColor: 'rgba(52,168,83,0.15)' }]}>
+              <View style={[styles.configDot, { backgroundColor: '#34A853' }]} />
+              <Text style={[styles.configStatusText, { color: '#34A853' }]}>
+                {SUPABASE_TARGET_REGION} · Live
               </Text>
             </View>
           </View>

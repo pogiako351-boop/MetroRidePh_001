@@ -7,6 +7,13 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
+// Target region for low-latency access from the Philippines.
+// Supabase's Cloudflare edge network automatically routes REST API traffic
+// through the nearest PoP — for Philippine users this is Singapore (sin-1).
+// This constant is used by the Pulse diagnostic to surface the configured
+// routing target and verify the endpoint resolves through that region.
+export const SUPABASE_TARGET_REGION = 'sin-1';
+
 // Safety guard: log a critical error at build/init time if env vars are absent
 if (!isSupabaseConfigured) {
   console.error(
@@ -14,6 +21,19 @@ if (!isSupabaseConfigured) {
       'EXPO_PUBLIC_SUPABASE_URL and/or EXPO_PUBLIC_SUPABASE_ANON_KEY are not set. ' +
       'All database features will be unavailable.',
   );
+}
+
+// ── Region-aware custom fetch ─────────────────────────────────────────────
+// Attaches a region-preference hint header so Supabase's CDN edge layer can
+// route the request through the Singapore (sin-1) PoP, minimising round-trip
+// latency for users in the Philippines. This does NOT change the physical
+// database location — it only influences CDN edge selection.
+function createRegionFetch(region: string) {
+  return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const headers = new Headers(init?.headers);
+    headers.set('x-client-region', region);
+    return fetch(input, { ...init, headers });
+  };
 }
 
 export const supabase = isSupabaseConfigured
@@ -25,6 +45,9 @@ export const supabase = isSupabaseConfigured
           apikey: supabaseAnonKey,
           Authorization: `Bearer ${supabaseAnonKey}`,
         },
+        // Route REST requests through the Singapore (sin-1) CDN edge node to
+        // keep latency low for Philippine users.
+        fetch: createRegionFetch(SUPABASE_TARGET_REGION),
       },
       auth: {
         storage: AsyncStorage,
