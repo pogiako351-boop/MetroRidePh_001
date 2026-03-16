@@ -784,7 +784,7 @@ export default function DashboardScreen() {
             </>
           ) : (
             ([
-              { line: 'LRT-1', sub: 'Roosevelt – Baclaran · Yellow Line', color: Colors.lrt1 },
+              { line: 'LRT-1', sub: 'FPJ – Dr. Santos · Yellow Line', color: Colors.lrt1 },
               { line: 'MRT-3', sub: 'North Ave – Taft Ave · Blue Line', color: Colors.mrt3 },
               { line: 'LRT-2', sub: 'Recto – Antipolo · Violet Line', color: Colors.lrt2 },
             ] as const).map(({ line, sub, color }) => (

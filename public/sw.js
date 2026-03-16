@@ -9,7 +9,9 @@
  *  - Community Reports UI: Cached for offline viewing
  */
 
-const CACHE_VERSION = 'v2';
+// v3 — 2026 Cavite Extension: 25 LRT-1 stations (FPJ→Dr. Santos),
+//       2026 km-based fare engine (₱16.25 + ₱1.47/km), SJT caps ₱20–₱55, Beep caps ₱16–₱52
+const CACHE_VERSION = 'v3';
 const SHELL_CACHE    = `metroride-shell-${CACHE_VERSION}`;
 const ASSETS_CACHE   = `metroride-assets-${CACHE_VERSION}`;
 const DATA_CACHE     = `metroride-data-${CACHE_VERSION}`;
@@ -181,7 +183,7 @@ async function navigationFetch(request) {
     <div class="icon">🚇</div>
     <h1>You're Offline</h1>
     <p>MetroRide PH is waiting for a connection. Your cached data is ready when you reconnect.</p>
-    <span class="badge">North Avenue → Taft Avenue</span>
+    <span class="badge">FPJ → Dr. Santos · 2026 Extension</span>
   </div>
 </body>
 </html>`,

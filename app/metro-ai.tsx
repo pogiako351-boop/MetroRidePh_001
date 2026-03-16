@@ -66,11 +66,13 @@ const SYSTEM_CONTEXT = `You are MetroAI Neural — the elite, next-generation Ra
 
 === OFFICIAL 2026 RAIL FARE MATRICES (Beep Card / Stored Value) ===
 
-LRT-1 (Vibrant Yellow Line) — 20 stations, Roosevelt (FPJ) to Baclaran:
-Roosevelt→Balintawak: ₱12 | Roosevelt→Monumento: ₱13 | Roosevelt→Doroteo Jose: ₱20 | Roosevelt→Carriedo: ₱22 | Roosevelt→Gil Puyat: ₱28 | Roosevelt→EDSA: ₱30 | Roosevelt→Baclaran: ₱30
-Baclaran→EDSA: ₱12 | Baclaran→Libertad: ₱13 | Baclaran→Doroteo Jose: ₱22 | Baclaran→Monumento: ₱28 | Baclaran→Roosevelt: ₱30
-Distance-based fares (stations apart → fare): 1→₱12, 2→₱13, 3→₱15, 4→₱15, 5→₱16, 6→₱18, 7→₱20, 8→₱20, 9→₱20, 10→₱22, 11→₱23, 12→₱24, 13→₱24, 14→₱25, 15→₱25, 16→₱28, 17→₱28, 18→₱30, 19→₱30
-Single Journey Ticket (SJT) adds ₱2 surcharge. Student/Senior/PWD get 20% discount (rounded to nearest peso).
+LRT-1 (Vibrant Yellow Line) — 25 stations, Fernando Poe Jr./FPJ to Dr. Santos (Cavite Extension 2026):
+2026 Fare Formula: Beep = clamp(₱16.25 + km×₱1.47, min ₱16, max ₱52) | SJT = clamp(₱16.25 + km×₱1.47 + ₱2, min ₱20, max ₱55)
+FPJ→Balintawak: ₱18 | FPJ→Monumento: ₱19 | FPJ→Doroteo Jose: ₱28 | FPJ→Carriedo: ₱29 | FPJ→Gil Puyat: ₱36 | FPJ→EDSA: ₱39 | FPJ→Baclaran: ₱40 | FPJ→Redemptorist-Aseana: ₱42 | FPJ→PITX: ₱46 | FPJ→Dr. Santos: ₱51
+Baclaran→EDSA: ₱18 | Baclaran→Libertad: ₱19 | Baclaran→Doroteo Jose: ₱29 | Baclaran→Monumento: ₱36 | Baclaran→FPJ: ₱40
+Cavite Extension fares from Baclaran: Baclaran→Redemptorist-Aseana: ₱18 | Baclaran→MIA Road: ₱19 | Baclaran→PITX: ₱21 | Baclaran→Ninoy Aquino Ave: ₱23 | Baclaran→Dr. Santos: ₱25
+SJT applies min ₱20 / max ₱55 cap. Student/Senior/PWD get 20% discount on the post-cap fare (rounded to nearest peso).
+FPJ formerly known as Roosevelt Station — renamed Fernando Poe Jr. (FPJ) in 2026.
 Operated by Light Rail Manila Corporation (LRMC) under LRTA. Operating hours: 5:00 AM – 10:00 PM daily.
 Station Master Hotline: LRTA Operations Center — available at all stations during operating hours.
 
@@ -101,10 +103,17 @@ Transfer routes combine individual rail line fares. Examples:
 • Doroteo Jose (LRT-1) / Recto (LRT-2): LRT-1 (Yellow) ↔ LRT-2 (Violet) — pedestrian walkway (~7 min)
 
 === MANILA RAIL GEOGRAPHY & LANDMARKS ===
+- Fernando Poe Jr./FPJ (LRT-1): Northern terminus — formerly Roosevelt Station, renamed 2026; near Fisher Mall
 - North Avenue (MRT-3): Gateway to SM North EDSA, Trinoma, Quezon City Circle
 - Ayala (MRT-3): Heart of Makati CBD, Glorietta/Greenbelt, BGC nearby
 - Taft Avenue (MRT-3) / EDSA (LRT-1): Key south Manila interchange near De La Salle University
 - Doroteo Jose (LRT-1): Quiapo Church area, near Recto Avenue shopping
+- Baclaran (LRT-1): Connects to Cavite Extension; Baclaran Church, Baclaran Market nearby
+- Redemptorist-Aseana (LRT-1 Ext): Aseana City Business Park, Roxas Boulevard area
+- MIA Road (LRT-1 Ext): Near NAIA/Manila International Airport Road; Andrews Avenue area
+- PITX (LRT-1 Ext): Parañaque Integrated Terminal Exchange — major bus-rail interchange hub
+- Ninoy Aquino Ave (LRT-1 Ext): Near Ayala Malls Manila Bay; Ninoy Aquino Avenue intersection
+- Dr. Santos (LRT-1 Ext): Southern terminus of Cavite Extension; near Dr. Santos Avenue / BF Parañaque
 - Cubao (LRT-2/MRT-3): Araneta City, Gateway Mall, Ali Mall — major commercial hub
 - Katipunan (LRT-2): Ateneo de Manila, UP Diliman, Miriam College area
 - Antipolo (LRT-2): Eastern terminal — Rizal Province gateway
@@ -121,15 +130,15 @@ Transfer routes combine individual rail line fares. Examples:
 // ── Transit Wisdom Fallbacks ─────────────────────────────────────────────────
 // Shown when AI encounters errors, so users always receive value
 const TRANSIT_WISDOM_FALLBACKS = [
-  '💡 Transit Tip: During rush hour (7–9 AM and 5–7 PM), MRT-3 stations like Ayala and Cubao see the heaviest congestion. Traveling just 30 minutes outside these windows can save significant waiting time.\n\n📞 Station Assistance: Station masters are available at every LRT-1, MRT-3, and LRT-2 station during operating hours. Look for uniformed staff or the Station Master booth near the ticket gates.\n\n💰 Quick Fare Estimate: MRT-3 end-to-end ₱28 | LRT-1 end-to-end ₱30 | LRT-2 end-to-end ₱35 (Beep Card). Add ₱2 for Single Journey Tickets. Students, Seniors, and PWDs get 20% off.',
+  '💡 Transit Tip: During rush hour (7–9 AM and 5–7 PM), MRT-3 stations like Ayala and Cubao see the heaviest congestion. Traveling just 30 minutes outside these windows can save significant waiting time.\n\n📞 Station Assistance: Station masters are available at every LRT-1, MRT-3, and LRT-2 station during operating hours. Look for uniformed staff or the Station Master booth near the ticket gates.\n\n💰 Quick Fare Estimate (2026): MRT-3 end-to-end ₱28 | LRT-1 FPJ→Baclaran ₱40 | LRT-1 FPJ→Dr. Santos ₱51 | LRT-2 end-to-end ₱35 (Beep Card). SJT: add ₱2 (LRT-1 SJT min ₱20, max ₱55). Students, Seniors, and PWDs get 20% off.',
   '🚉 Transfer Intelligence: Manila\'s three rail lines connect at three key interchanges:\n• Cubao: MRT-3 ↔ LRT-2 (~5 min walk)\n• Taft/EDSA: MRT-3 ↔ LRT-1 (~3 min walk)\n• Doroteo Jose/Recto: LRT-1 ↔ LRT-2 (~7 min walk)\n\n💳 Beep Card Advantage: Using a stored-value Beep Card saves ₱2 per trip versus Single Journey Tickets. A round trip saves ₱4 daily — that\'s ₱80/month for regular commuters.\n\n⏰ Operating Hours: LRT-1 & LRT-2: 5:00 AM–10:00 PM | MRT-3: 5:30 AM–10:30 PM daily.',
   '🌅 Early Bird Strategy: Trains before 7 AM are typically 60% less crowded on all three lines. If your schedule allows, early departures mean comfortable seated rides and faster journey times.\n\n🔵 MRT-3 Crowd Hotspots: North Avenue, Ayala, and Shaw Boulevard are the heaviest platforms during PM rush. For southbound travel after 5 PM, consider boarding at Quezon Avenue or GMA-Kamuning for a better chance of getting a seat.\n\n📱 Fare Calculator: Use the MetroRide Fare Calculator for precise station-to-station fares including discount computations.',
-  '🎫 Discount Eligibility: Students, Senior Citizens (60+), and Persons with Disability (PWD) are entitled to a statutory 20% fare discount on all Metro Manila rail lines. Present your valid ID at the ticket booth to claim your discount.\n\n🌙 Last Train Times: LRT-1 last trip from Baclaran ~9:45 PM, from Roosevelt ~9:30 PM | MRT-3 last trip from Taft ~10:15 PM, from North Ave ~10:00 PM | LRT-2 last trip from Antipolo ~9:30 PM, from Recto ~9:45 PM. Always check the MetroRide alerts for any schedule changes.\n\n🚌 After Rail Hours: For travel after last trains, MRTC and LRTA official apps and station bulletin boards post alternative transport advisories.',
+  '🎫 Discount Eligibility: Students, Senior Citizens (60+), and Persons with Disability (PWD) are entitled to a statutory 20% fare discount on all Metro Manila rail lines. Present your valid ID at the ticket booth to claim your discount.\n\n🌙 Last Train Times: LRT-1 last trip from Dr. Santos ~9:40 PM, from FPJ ~9:30 PM | MRT-3 last trip from Taft ~10:15 PM, from North Ave ~10:00 PM | LRT-2 last trip from Antipolo ~9:30 PM, from Recto ~9:45 PM. Always check the MetroRide alerts for any schedule changes.\n\n🚌 After Rail Hours: For travel after last trains, MRTC and LRTA official apps and station bulletin boards post alternative transport advisories.',
 ];
 
 const QUICK_PROMPTS = [
   { label: '🗺️ North Ave → Baclaran', prompt: 'What is the cheapest route and total fare from North Avenue MRT-3 to Baclaran LRT-1 using a Beep Card?' },
-  { label: '💛 LRT-1 full fare', prompt: 'How much does it cost to ride LRT-1 from Roosevelt (FPJ) to Baclaran with a Beep Card for a regular passenger vs a senior citizen?' },
+  { label: '💛 LRT-1 full fare', prompt: 'How much does it cost to ride LRT-1 from FPJ (Fernando Poe Jr.) to Dr. Santos with a Beep Card for a regular passenger vs a senior citizen? What is the 2026 fare?' },
   { label: '🔵 MRT-3 end to end', prompt: 'What is the exact fare for riding MRT-3 from North Avenue to Taft Avenue? Include Beep Card and SJT prices.' },
   { label: '💜 LRT-2 to Antipolo', prompt: 'How much is the fare from Recto to Antipolo on LRT-2? What is the student discount price?' },
 ];

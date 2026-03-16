@@ -46,7 +46,7 @@ function getDirection(line: LineId, fromIndex: number, toIndex: number): string 
     return fromIndex < toIndex ? 'Southbound (to Taft Ave)' : 'Northbound (to North Ave)';
   }
   if (line === 'LRT-1') {
-    return fromIndex < toIndex ? 'Southbound (to Baclaran)' : 'Northbound (to Roosevelt)';
+    return fromIndex < toIndex ? 'Southbound (to Dr. Santos)' : 'Northbound (to FPJ)';
   }
   return fromIndex < toIndex ? 'Eastbound (to Antipolo)' : 'Westbound (to Recto)';
 }

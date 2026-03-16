@@ -34,7 +34,9 @@ import { ALL_STATIONS, Station } from '@/constants/stations';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const MAP_WIDTH = 700;
-const MAP_HEIGHT = 780;
+// Extended to accommodate LRT-1 Cavite Extension stations south of Baclaran
+// Dr. Santos (14.4714°N) maps to y≈1013 with the 5000/deg scale
+const MAP_HEIGHT = 1100;
 
 // Coordinate transform: lat/lon → pixel
 function toMapCoords(lat: number, lon: number): { x: number; y: number } {
@@ -89,16 +91,16 @@ export default function TransitMapScreen() {
       .catch(() => {});
   }, []);
 
-  // Center map on load
+  // Center map on load — use 0.48 zoom to show the full extended LRT-1 line
   useEffect(() => {
-    const offsetX = (SCREEN_WIDTH - MAP_WIDTH * 0.55) / 2;
+    const offsetX = (SCREEN_WIDTH - MAP_WIDTH * 0.48) / 2;
     const offsetY = 80;
     translateX.value = offsetX;
     translateY.value = offsetY;
     savedTranslateX.value = offsetX;
     savedTranslateY.value = offsetY;
-    scale.value = 0.55;
-    savedScale.value = 0.55;
+    scale.value = 0.48;
+    savedScale.value = 0.48;
   }, [translateX, translateY, savedTranslateX, savedTranslateY, scale, savedScale]);
 
   const pinchGesture = Gesture.Pinch()
@@ -131,12 +133,12 @@ export default function TransitMapScreen() {
   }));
 
   const resetView = useCallback(() => {
-    const offsetX = (SCREEN_WIDTH - MAP_WIDTH * 0.55) / 2;
+    const offsetX = (SCREEN_WIDTH - MAP_WIDTH * 0.48) / 2;
     const offsetY = 80;
-    scale.value = withSpring(0.55, { damping: 15 });
+    scale.value = withSpring(0.48, { damping: 15 });
     translateX.value = withSpring(offsetX, { damping: 15 });
     translateY.value = withSpring(offsetY, { damping: 15 });
-    savedScale.value = 0.55;
+    savedScale.value = 0.48;
     savedTranslateX.value = offsetX;
     savedTranslateY.value = offsetY;
   }, [scale, translateX, translateY, savedScale, savedTranslateX, savedTranslateY]);
@@ -202,16 +204,33 @@ export default function TransitMapScreen() {
     );
   };
 
+  // Primary termini that always show labels (regardless of selection/transfer status)
+  const PRIMARY_TERMINI = new Set(['lrt1-fpj', 'lrt1-dr-santos', 'mrt3-north-avenue', 'mrt3-taft-avenue', 'lrt2-recto', 'lrt2-antipolo']);
+
   const renderStations = (stations: Station[], color: string) =>
     stations.map((station) => {
       const pos = STATION_POSITIONS[station.id];
       if (!pos) return null;
-      const r = station.isTransfer ? TRANSFER_RADIUS : STATION_RADIUS;
+      const isTerminus = PRIMARY_TERMINI.has(station.id);
+      const r = (station.isTransfer || isTerminus) ? TRANSFER_RADIUS : STATION_RADIUS;
       const isSelected = selectedStation?.id === station.id;
       const isActive = isActiveRoute(station.id);
 
       return (
         <G key={station.id}>
+          {/* Terminus glow ring for FPJ and Dr. Santos */}
+          {isTerminus && !isSelected && (
+            <Circle
+              cx={pos.x}
+              cy={pos.y}
+              r={r + 5}
+              fill="none"
+              stroke={color}
+              strokeWidth={1.5}
+              strokeDasharray="3 2"
+              opacity={0.6}
+            />
+          )}
           {/* Active route highlight ring */}
           {isActive && (
             <Circle
@@ -240,26 +259,26 @@ export default function TransitMapScreen() {
             cx={pos.x}
             cy={pos.y}
             r={r}
-            fill={isSelected ? Colors.neonLime : '#0D0E10'}
+            fill={isSelected ? Colors.neonLime : (isTerminus ? color : '#0D0E10')}
             stroke={isActive ? Colors.neonLime : color}
             strokeWidth={isActive ? 3 : 2.5}
             onPress={() => handleStationPress(station)}
           />
           {/* Transfer inner dot */}
-          {station.isTransfer && !isSelected && (
+          {station.isTransfer && !isSelected && !isTerminus && (
             <Circle cx={pos.x} cy={pos.y} r={r - 4} fill={color} />
           )}
-          {/* Station label for important stations */}
-          {(station.isTransfer || isSelected || isActive) && (
+          {/* Station label for termini, transfers, selected, and active route stations */}
+          {(isTerminus || station.isTransfer || isSelected || isActive) && (
             <SvgText
               x={pos.x + r + 5}
               y={pos.y + 4}
-              fontSize={9}
-              fontWeight={isSelected ? 'bold' : '500'}
-              fill={isSelected ? Colors.neonLime : 'rgba(255,255,255,0.85)'}
+              fontSize={isTerminus ? 10 : 9}
+              fontWeight={isSelected || isTerminus ? 'bold' : '500'}
+              fill={isSelected ? Colors.neonLime : (isTerminus ? color : 'rgba(255,255,255,0.85)')}
             >
-              {station.name.length > 14
-                ? station.name.substring(0, 12) + '…'
+              {station.name.length > 16
+                ? station.name.substring(0, 14) + '…'
                 : station.name}
             </SvgText>
           )}
@@ -362,8 +381,10 @@ export default function TransitMapScreen() {
                 {renderStations(lrt2Stations, LINE_COLORS['LRT-2'])}
 
                 {/* Line labels */}
-                <Rect x={10} y={MAP_HEIGHT - 35} width={80} height={22} rx={6} fill={LINE_COLORS['LRT-1'] + 'CC'} />
-                <SvgText x={50} y={MAP_HEIGHT - 20} textAnchor="middle" fontSize={10} fontWeight="bold" fill="#FFF">LRT Line 1</SvgText>
+                <Rect x={10} y={MAP_HEIGHT - 70} width={110} height={44} rx={6} fill={LINE_COLORS['LRT-1'] + 'CC'} />
+                <SvgText x={65} y={MAP_HEIGHT - 52} textAnchor="middle" fontSize={9} fontWeight="bold" fill="#08090A">LRT Line 1</SvgText>
+                <SvgText x={65} y={MAP_HEIGHT - 41} textAnchor="middle" fontSize={7} fill="#08090A">FPJ ↔ Dr. Santos</SvgText>
+                <SvgText x={65} y={MAP_HEIGHT - 31} textAnchor="middle" fontSize={7} fill="#08090A">Cavite Extension 2026</SvgText>
 
                 <Rect x={310} y={30} width={80} height={22} rx={6} fill={LINE_COLORS['MRT-3'] + 'CC'} />
                 <SvgText x={350} y={45} textAnchor="middle" fontSize={10} fontWeight="bold" fill="#FFF">MRT Line 3</SvgText>

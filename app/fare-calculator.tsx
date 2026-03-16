@@ -86,7 +86,8 @@ function SegmentedToggle({ value, onChange, accentColor }: SegmentedToggleProps)
                 active && { color: '#FFFFFF' },
               ]}
             >
-              {t.label}
+              {/* Use shortLabel for compact display in the segmented control */}
+              {(t as { shortLabel?: string }).shortLabel ?? t.label}
             </Text>
           </Pressable>
         );
@@ -230,7 +231,7 @@ function TransferFarePanel({ segments, ticketType, passengerProfile }: TransferF
       </View>
       {segments.map((seg, i) => {
         const brand = getAccent(seg.line);
-        const segBD = computeFareBreakdown(seg.fare, ticketType, passengerProfile);
+        const segBD = computeFareBreakdown(seg.fare, ticketType, passengerProfile, seg.line);
         return (
           <View key={i} style={tfStyles.row}>
             <View style={[tfStyles.lineBadge, { backgroundColor: brand.soft }]}>
@@ -822,11 +823,12 @@ export default function FareCalculatorScreen() {
     }
     const route = routes[selectedRouteIndex];
     if (!route) return;
-    const bd = computeFareBreakdown(route.totalFare, ticketType, passengerProfile);
+    // Pass primaryLine so computeFareBreakdown can apply 2026 LRT-1 SJT caps correctly
+    const bd = computeFareBreakdown(route.totalFare, ticketType, passengerProfile, primaryLine);
     setBreakdown(bd);
     // Haptic pulse on fare recalculation
     hapticLight();
-  }, [calculated, routes, selectedRouteIndex, ticketType, passengerProfile]);
+  }, [calculated, routes, selectedRouteIndex, ticketType, passengerProfile, primaryLine]);
 
   const handleSwap = useCallback(() => {
     const temp = fromStation;
@@ -877,7 +879,8 @@ export default function FareCalculatorScreen() {
 
   // Show smart savings tooltip when SJT is selected and there's a surcharge
   const showSavingsTooltip = calculated && ticketType === 'sjt' && routes.length > 0;
-  const beepSavings = SJT_SURCHARGE;
+  // For LRT-1 2026, SJT surcharge vs beep varies (min ₱2, min SJT is ₱20 so short trips show ₱4+ diff)
+  const beepSavings = breakdown ? breakdown.sjtSurcharge : SJT_SURCHARGE;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -957,6 +960,17 @@ export default function FareCalculatorScreen() {
               onChange={setTicketType}
               accentColor={accentBrand.primary}
             />
+            {/* 2026 LRT-1 fare caps info */}
+            {primaryLine === 'LRT-1' && (
+              <View style={styles.capsInfoRow}>
+                <Ionicons name="information-circle-outline" size={13} color={accentBrand.softText} />
+                <Text style={[styles.capsInfoText, { color: accentBrand.softText }]}>
+                  {ticketType === 'beep'
+                    ? '2026 LRT-1 Beep: ₱16 min · ₱52 max'
+                    : '2026 LRT-1 SJT: ₱20 min · ₱55 max'}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.optionDivider} />
@@ -1274,6 +1288,18 @@ const styles = StyleSheet.create({
     color: Colors.success,
     fontWeight: FontWeight.medium,
     marginLeft: 'auto',
+  },
+  capsInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: Spacing.xs,
+    paddingHorizontal: 2,
+  },
+  capsInfoText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.medium,
+    opacity: 0.85,
   },
   optionDivider: {
     height: 1,
