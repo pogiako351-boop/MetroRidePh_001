@@ -4,7 +4,7 @@
     "slug": "metroride-ph",
     "version": "3.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/icons/metroride-icon.png",
     "scheme": "fastshot",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -20,7 +20,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/icons/metroride-icon.png",
         "backgroundColor": "#0A0F1E"
       },
       "edgeToEdgeEnabled": true,
@@ -49,7 +49,7 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/favicon.png",
+      "favicon": "./assets/icons/metroride-icon.png",
       "backgroundColor": "#0A0F1E",
       "themeColor": "#00FFFF"
     },
@@ -58,7 +58,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/icons/metroride-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#050505"
@@ -73,7 +73,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./assets/icons/metroride-icon.png",
           "color": "#1A73E8",
           "defaultChannel": "transit-alerts",
           "sounds": []
