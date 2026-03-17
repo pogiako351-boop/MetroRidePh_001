@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -76,6 +76,21 @@ export default function DiagnosticsScreen() {
       setRunning(false);
     }
   }, [running]);
+
+  // Auto-run the diagnostic once on mount so the dashboard reflects the
+  // current fixed configuration immediately without requiring a manual tap.
+  const hasAutoRun = useRef(false);
+  useEffect(() => {
+    if (hasAutoRun.current) return;
+    hasAutoRun.current = true;
+    setRunning(true);
+    setReport(null);
+    runConnectivityDiagnostic().then((result) => {
+      setReport(result);
+    }).finally(() => {
+      setRunning(false);
+    });
+  }, []);
 
   const overallCfg = report ? OVERALL_CONFIG[report.overallStatus] : null;
 

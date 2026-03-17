@@ -51,6 +51,17 @@ async function checkInternet(): Promise<DiagnosticResult> {
   }
 }
 
+// ── Local env-var sanitiser (mirrors utils/supabase.ts cleanEnvVar) ──────
+// Strips surrounding quotes/backticks and trims whitespace so the diagnostic
+// always validates the exact same sanitised credential as the live client.
+function cleanDiagnosticEnvVar(value: string | undefined): string {
+  if (!value) return '';
+  return value
+    .replace(/^['"`]|['"`]$/g, '')
+    .replace(/[\r\n]/g, '')
+    .trim();
+}
+
 // ── Test Supabase REST endpoint ───────────────────────────────────────────
 // Priority: EXPO_PUBLIC_* → NEXT_PUBLIC_* → bare SUPABASE_*
 // Matches the updated priority order in utils/supabase.ts so the diagnostic
@@ -58,24 +69,28 @@ async function checkInternet(): Promise<DiagnosticResult> {
 // HTTP 401 is explicitly detected and surfaced as 'Missing Config' to prevent
 // it from appearing as a generic network error in the Pulse dashboard.
 async function checkSupabase(): Promise<DiagnosticResult> {
-  // Resolve using the same priority order as the Supabase client.
-  const rawUrl =
+  // Resolve and sanitise using the same priority order as the Supabase client.
+  const rawUrl = cleanDiagnosticEnvVar(
     process.env.EXPO_PUBLIC_SUPABASE_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.SUPABASE_URL;
+    process.env.SUPABASE_URL,
+  );
 
-  // Enforce https:// — mirrors the normalisation in utils/supabase.ts.
-  const url = rawUrl ? rawUrl.replace(/^http:\/\//i, 'https://') : undefined;
+  // Enforce https:// and strip trailing slashes — mirrors utils/supabase.ts.
+  const url = rawUrl
+    ? rawUrl.replace(/^http:\/\//i, 'https://').replace(/\/+$/, '')
+    : undefined;
 
-  const key =
+  const key = cleanDiagnosticEnvVar(
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY;
+    process.env.SUPABASE_ANON_KEY,
+  );
 
   // Explicit pre-flight validation — report 'Missing Config' before attempting
   // any network handshake so the error origin is unambiguous.
   if (!url || !key) {
-    const missingField = !url ? 'SUPABASE_URL' : 'SUPABASE_ANON_KEY';
+    const missingField = !url ? 'EXPO_PUBLIC_SUPABASE_URL' : 'EXPO_PUBLIC_SUPABASE_ANON_KEY';
     return {
       label: 'Supabase Reachability',
       status: 'fail',
@@ -257,29 +272,34 @@ function checkEnvVars(): DiagnosticResult {
   return { label: 'Environment Variables', status: 'fail', detail: missingDetail };
 }
 
-// ── Determine whether a Supabase result indicates an auth/config blockage ─
-// Used to decide whether downstream Newell AI results should transition to
-// 'Waiting for Auth' rather than 'Fail' to prevent cascading error flags.
-function isSupabaseAuthBlocked(result: DiagnosticResult): boolean {
-  if (result.status !== 'fail') return false;
-  const d = result.detail.toLowerCase();
-  return d.includes('401') || d.includes('missing config') || d.includes('cannot authenticate');
-}
-
 // ── Full diagnostic run ───────────────────────────────────────────────────
-// All three network checks run in parallel so one failure cannot block the
-// others from reporting their status.  Post-processing then applies the
-// Newell AI 'Waiting for Auth' cascade rule and resolves the internet
-// heuristic before calculating the final overall health status.
+// Execution order:
+//   1. Internet + Supabase run in parallel (independent of each other).
+//   2. Newell AI is triggered ONLY after Supabase returns a successful (pass)
+//      response — matching the requirement that AI initialisation depends on
+//      the Supabase 200 OK gate.  When Supabase fails / returns 401, Newell AI
+//      is shown as 'Waiting for Auth' without making a network attempt.
 export async function runConnectivityDiagnostic(): Promise<FullDiagnosticReport> {
   const envCheck = checkEnvVars();
 
-  // Fire all checks simultaneously — no check depends on another's result.
-  const [internet, supabaseCheck, newell] = await Promise.all([
+  // Phase 1 — run Internet and Supabase in parallel.
+  const [internet, supabaseCheck] = await Promise.all([
     checkInternet(),
     checkSupabase(),
-    checkNewellAI(),
   ]);
+
+  // Phase 2 — trigger Newell AI immediately after Supabase returns 200 OK.
+  // When Supabase is blocked (401 / missing-config) or otherwise failing,
+  // mark Newell AI as 'Waiting for Auth' rather than running the check so
+  // Pulse only shows one root-cause failure instead of cascading errors.
+  const resolvedNewell: DiagnosticResult = supabaseCheck.status === 'pass'
+    ? await checkNewellAI()
+    : {
+        label: 'Newell AI Service',
+        status: 'waiting',
+        detail:
+          'Waiting for Auth — Supabase must return 200 OK before the AI service can be validated',
+      };
 
   // ── Heuristic: treat Internet as PASS when Supabase is confirmed reachable.
   // This avoids false 'Fail' reports on mobile data where google.com HEAD
@@ -294,21 +314,6 @@ export async function runConnectivityDiagnostic(): Promise<FullDiagnosticReport>
           durationMs: internet.durationMs,
         }
       : internet;
-
-  // ── Newell AI cascade rule ────────────────────────────────────────────────
-  // If Supabase failed due to a 401 or missing-config condition, the Newell AI
-  // check is deferred rather than marked 'Fail'.  This prevents a Supabase auth
-  // issue from producing a misleading second failure flag in the Pulse dashboard.
-  const resolvedNewell: DiagnosticResult =
-    isSupabaseAuthBlocked(supabaseCheck) && newell.status === 'fail'
-      ? {
-          label: 'Newell AI Service',
-          status: 'waiting',
-          detail:
-            'Waiting for Auth — Supabase authentication must succeed before the AI service can be validated',
-          durationMs: newell.durationMs,
-        }
-      : newell;
 
   const results = [envCheck, resolvedInternet, supabaseCheck, resolvedNewell];
 

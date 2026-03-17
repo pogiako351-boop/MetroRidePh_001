@@ -2,29 +2,45 @@ import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// ── Environment variable sanitiser ───────────────────────────────────────
+// Strips surrounding single-quotes, double-quotes, or backticks that can be
+// accidentally introduced by shell quoting or certain CI/CD secret managers,
+// then trims any leading/trailing whitespace (including newline characters).
+// This is the primary guard against HTTP 401s caused by a malformed API key.
+function cleanEnvVar(value: string | undefined): string {
+  if (!value) return '';
+  return value
+    .replace(/^['"`]|['"`]$/g, '')  // remove wrapping quote/backtick characters
+    .replace(/[\r\n]/g, '')          // strip any embedded line-break characters
+    .trim();                          // remove leading / trailing whitespace
+}
+
 // ── Prioritized environment variable resolution ───────────────────────────
 // Priority: EXPO_PUBLIC_* → NEXT_PUBLIC_* → bare SUPABASE_*
 // Expo/React Native bundles only inline EXPO_PUBLIC_* at build time, so that
 // prefix is checked first to ensure the correct production secret is read on
 // the live site before falling back to Next.js and plain Node variants.
-const rawSupabaseUrl =
+const rawSupabaseUrl = cleanEnvVar(
   process.env.EXPO_PUBLIC_SUPABASE_URL ||
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.SUPABASE_URL ||
-  '';
+  process.env.SUPABASE_URL,
+);
 
-// ── https:// enforcement ──────────────────────────────────────────────────
+// ── https:// enforcement + trailing-slash normalisation ───────────────────
 // Supabase requires TLS for all API calls. Strip any accidental http:// prefix
-// and re-attach https:// so mis-configured env vars don't cause silent failures.
+// and re-attach https://. Also remove trailing slashes so that path segments
+// like /rest/v1/ are always constructed with a single slash separator.
 const supabaseUrl = rawSupabaseUrl
-  ? rawSupabaseUrl.replace(/^http:\/\//i, 'https://')
+  ? rawSupabaseUrl
+      .replace(/^http:\/\//i, 'https://')
+      .replace(/\/+$/, '')
   : '';
 
-const supabaseAnonKey =
+const supabaseAnonKey = cleanEnvVar(
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  '';
+  process.env.SUPABASE_ANON_KEY,
+);
 
 // ── Explicit credential validation ───────────────────────────────────────
 // Each field is checked independently so partial-configuration ('missing-config')
