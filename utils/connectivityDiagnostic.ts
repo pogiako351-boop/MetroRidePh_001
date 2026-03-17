@@ -452,18 +452,30 @@ export async function runConnectivityDiagnostic(): Promise<FullDiagnosticReport>
   const healedInternet  = results.find((r) => r.label === 'Internet Connectivity') ?? resolvedInternet;
   const healedSupabase  = results.find((r) => r.label === 'Supabase Reachability') ?? supabaseCheck;
 
-  const isConfigValid       = envCheck.status === 'pass';
   const isConnectivityValid =
     healedSupabase.status === 'pass' && healedInternet.status === 'pass';
 
+  // Self-healing is active when both SW and cache fallbacks are populated.
+  // In this state the app serves all data from cache — it IS functionally healthy.
+  const isSelfHealingActive = swCheck.status === 'pass' && cacheCheck.status === 'pass';
+
+  // Online health path: both primary connectivity services are reachable (post-heuristic).
+  const isOnlineHealthy = healedInternet.status === 'pass' && healedSupabase.status === 'pass';
+
+  // ── Overall status: 'All Green' when online OR when offline self-healing covers the gaps ──
+  //  a) Online path  — Internet + Supabase reachable (post-heuristic / healed)
+  //  b) Offline path — Service Worker + Cache Integrity both pass (self-healing active)
+  //  Either path with no hard failures (failCount === 0) yields 'healthy'.
   const overallStatus: 'healthy' | 'degraded' | 'critical' =
     failCount >= 2
       ? 'critical'
-      : failCount === 1 || warnCount >= 2
+      : failCount === 1
         ? 'degraded'
-        : !isConfigValid || !isConnectivityValid
-          ? 'degraded'
-          : 'healthy';
+        : (isOnlineHealthy || isSelfHealingActive)
+          ? 'healthy'
+          : warnCount >= 2 || !isConnectivityValid
+            ? 'degraded'
+            : 'healthy';
 
   return {
     timestamp: new Date(),

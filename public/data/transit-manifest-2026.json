@@ -1,0 +1,223 @@
+{
+  "_meta": {
+    "version": "2026",
+    "generated": "2026-03-17",
+    "description": "MetroRide PH — Official 2026 Transit Data Manifest (pre-cached by Service Worker for offline operation)",
+    "total_stations": 51,
+    "lines": ["LRT-1", "MRT-3", "LRT-2"],
+    "cavite_extension": true,
+    "sw_cache_key": "transit-manifest-2026-v1"
+  },
+  "fare_constants": {
+    "lrt1": {
+      "boarding_fare": 16.25,
+      "per_km_fare": 1.47,
+      "beep_min": 16,
+      "beep_max": 52,
+      "sjt_min": 20,
+      "sjt_max": 55,
+      "sjt_surcharge": 2,
+      "formula": "beep = clamp(round(16.25 + km * 1.47), 16, 52) | sjt = clamp(round(16.25 + km * 1.47 + 2), 20, 55)"
+    },
+    "mrt3": {
+      "sjt_surcharge": 2,
+      "fares_by_station_distance": [0, 13, 16, 16, 20, 20, 24, 24, 24, 28, 28, 28, 28],
+      "note": "Index = number of stations traveled; fare is symmetric"
+    },
+    "lrt2": {
+      "sjt_surcharge": 2,
+      "fares_by_station_distance": [0, 15, 17, 19, 20, 21, 23, 25, 27, 28, 30, 32, 35],
+      "fare_matrix_13x13": [
+        [  0, 15, 17, 19, 20, 21, 23, 25, 27, 28, 30, 32, 35],
+        [ 15,  0, 15, 17, 19, 20, 21, 23, 25, 27, 28, 30, 32],
+        [ 17, 15,  0, 15, 17, 19, 20, 21, 23, 25, 27, 28, 30],
+        [ 19, 17, 15,  0, 15, 17, 19, 20, 21, 23, 25, 27, 28],
+        [ 20, 19, 17, 15,  0, 15, 17, 19, 20, 21, 23, 25, 27],
+        [ 21, 20, 19, 17, 15,  0, 15, 17, 19, 20, 21, 23, 25],
+        [ 23, 21, 20, 19, 17, 15,  0, 15, 17, 19, 20, 21, 23],
+        [ 25, 23, 21, 20, 19, 17, 15,  0, 15, 17, 19, 20, 21],
+        [ 27, 25, 23, 21, 20, 19, 17, 15,  0, 15, 17, 19, 20],
+        [ 28, 27, 25, 23, 21, 20, 19, 17, 15,  0, 15, 17, 19],
+        [ 30, 28, 27, 25, 23, 21, 20, 19, 17, 15,  0, 15, 17],
+        [ 32, 30, 28, 27, 25, 23, 21, 20, 19, 17, 15,  0, 15],
+        [ 35, 32, 30, 28, 27, 25, 23, 21, 20, 19, 17, 15,  0]
+      ],
+      "note": "Row = from_index (0=Recto, 12=Antipolo), Col = to_index; Beep Card fares in PHP"
+    },
+    "passenger_discounts": {
+      "regular": 0,
+      "student": 0.20,
+      "senior": 0.20,
+      "pwd": 0.20
+    }
+  },
+  "lines": {
+    "LRT-1": {
+      "name": "LRT Line 1",
+      "brand": "Yellow Line",
+      "color": "#FFE600",
+      "operator": "Light Rail Manila Corporation (LRMC) under LRTA",
+      "station_count": 25,
+      "terminus_north": "Fernando Poe Jr. (FPJ)",
+      "terminus_south": "Dr. Santos",
+      "operating_hours": "5:00 AM – 10:00 PM daily",
+      "first_train": "5:00 AM",
+      "last_train": "10:00 PM",
+      "cavite_extension": true,
+      "cavite_extension_stations": [
+        "Redemptorist-Aseana",
+        "MIA Road",
+        "PITX",
+        "Ninoy Aquino Ave",
+        "Dr. Santos"
+      ],
+      "cavite_extension_note": "LRT-1 Cavite Extension (2026) — 5 new stations connecting Baclaran to Dr. Santos in Las Piñas/Parañaque",
+      "key_fares_from_fpj_beep": {
+        "Balintawak": 18,
+        "Monumento": 19,
+        "Doroteo Jose": 28,
+        "Carriedo": 29,
+        "Gil Puyat": 36,
+        "EDSA": 39,
+        "Baclaran": 40,
+        "Redemptorist-Aseana": 42,
+        "PITX": 46,
+        "Dr. Santos": 51
+      },
+      "key_fares_from_baclaran_beep": {
+        "Redemptorist-Aseana": 18,
+        "MIA Road": 19,
+        "PITX": 21,
+        "Ninoy Aquino Ave": 23,
+        "Dr. Santos": 25
+      }
+    },
+    "MRT-3": {
+      "name": "MRT Line 3",
+      "brand": "Blue Line",
+      "color": "#4499FF",
+      "operator": "Metro Rail Transit Corporation (MRTC)",
+      "station_count": 13,
+      "terminus_north": "North Avenue",
+      "terminus_south": "Taft Avenue",
+      "operating_hours": "5:30 AM – 10:30 PM daily",
+      "first_train": "5:30 AM",
+      "last_train": "10:30 PM",
+      "cavite_extension": false,
+      "key_fares_from_north_avenue_beep": {
+        "Quezon Avenue": 13,
+        "GMA Kamuning": 16,
+        "Araneta-Cubao": 16,
+        "Santolan-Annapolis": 20,
+        "Ortigas": 20,
+        "Shaw Boulevard": 24,
+        "Boni": 24,
+        "Guadalupe": 24,
+        "Buendia": 28,
+        "Ayala": 28,
+        "Magallanes": 28,
+        "Taft Avenue": 28
+      }
+    },
+    "LRT-2": {
+      "name": "LRT Line 2",
+      "brand": "Violet Line",
+      "color": "#BB44FF",
+      "operator": "Light Rail Transit Authority (LRTA)",
+      "station_count": 13,
+      "terminus_west": "Recto",
+      "terminus_east": "Antipolo",
+      "operating_hours": "5:00 AM – 10:00 PM daily",
+      "first_train": "5:00 AM",
+      "last_train": "10:00 PM",
+      "cavite_extension": false,
+      "key_fares_from_recto_beep": {
+        "Legarda": 15,
+        "Pureza": 17,
+        "V. Mapa": 19,
+        "J. Ruiz": 20,
+        "Gilmore": 21,
+        "Betty Go-Belmonte": 23,
+        "Cubao": 25,
+        "Anonas": 27,
+        "Katipunan": 28,
+        "Santolan": 30,
+        "Marikina-Pasig": 32,
+        "Antipolo": 35
+      }
+    }
+  },
+  "transfer_stations": [
+    {
+      "mrt3_station": "Araneta Center-Cubao",
+      "lrt2_station": "Cubao",
+      "walk_minutes": 5,
+      "note": "MRT-3 Blue ↔ LRT-2 Violet"
+    },
+    {
+      "mrt3_station": "Taft Avenue",
+      "lrt1_station": "EDSA",
+      "walk_minutes": 3,
+      "note": "MRT-3 Blue ↔ LRT-1 Yellow — adjacent stations"
+    },
+    {
+      "lrt1_station": "Doroteo Jose",
+      "lrt2_station": "Recto",
+      "walk_minutes": 7,
+      "note": "LRT-1 Yellow ↔ LRT-2 Violet — pedestrian walkway"
+    }
+  ],
+  "stations": [
+    {"id": "mrt3-north-avenue",         "name": "North Avenue",             "line": "MRT-3", "lineIndex": 0,  "lat": 14.6522, "lon": 121.0320, "status": "Normal", "isTransfer": false},
+    {"id": "mrt3-quezon-avenue",         "name": "Quezon Avenue",            "line": "MRT-3", "lineIndex": 1,  "lat": 14.6427, "lon": 121.0386, "status": "Normal", "isTransfer": false},
+    {"id": "mrt3-gma-kamuning",          "name": "GMA Kamuning",             "line": "MRT-3", "lineIndex": 2,  "lat": 14.6353, "lon": 121.0434, "status": "Normal", "isTransfer": false},
+    {"id": "mrt3-araneta-cubao",         "name": "Araneta Center-Cubao",     "line": "MRT-3", "lineIndex": 3,  "lat": 14.6225, "lon": 121.0530, "status": "Normal", "isTransfer": true,  "transferTo": ["LRT-2"]},
+    {"id": "mrt3-santolan-annapolis",    "name": "Santolan-Annapolis",       "line": "MRT-3", "lineIndex": 4,  "lat": 14.6073, "lon": 121.0569, "status": "Normal", "isTransfer": false},
+    {"id": "mrt3-ortigas",               "name": "Ortigas",                  "line": "MRT-3", "lineIndex": 5,  "lat": 14.5879, "lon": 121.0569, "status": "Normal", "isTransfer": false},
+    {"id": "mrt3-shaw-boulevard",        "name": "Shaw Boulevard",           "line": "MRT-3", "lineIndex": 6,  "lat": 14.5812, "lon": 121.0546, "status": "Normal", "isTransfer": false},
+    {"id": "mrt3-boni",                  "name": "Boni",                     "line": "MRT-3", "lineIndex": 7,  "lat": 14.5735, "lon": 121.0485, "status": "Normal", "isTransfer": false},
+    {"id": "mrt3-guadalupe",             "name": "Guadalupe",                "line": "MRT-3", "lineIndex": 8,  "lat": 14.5667, "lon": 121.0456, "status": "Normal", "isTransfer": false},
+    {"id": "mrt3-buendia",               "name": "Buendia",                  "line": "MRT-3", "lineIndex": 9,  "lat": 14.5545, "lon": 121.0345, "status": "Normal", "isTransfer": false},
+    {"id": "mrt3-ayala",                 "name": "Ayala",                    "line": "MRT-3", "lineIndex": 10, "lat": 14.5492, "lon": 121.0288, "status": "Normal", "isTransfer": false},
+    {"id": "mrt3-magallanes",            "name": "Magallanes",               "line": "MRT-3", "lineIndex": 11, "lat": 14.5420, "lon": 121.0196, "status": "Normal", "isTransfer": false},
+    {"id": "mrt3-taft-avenue",           "name": "Taft Avenue",              "line": "MRT-3", "lineIndex": 12, "lat": 14.5374, "lon": 121.0008, "status": "Normal", "isTransfer": true,  "transferTo": ["LRT-1"]},
+    {"id": "lrt1-fpj",                   "name": "Fernando Poe Jr. (FPJ)",   "line": "LRT-1", "lineIndex": 0,  "lat": 14.6575, "lon": 120.9837, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-balintawak",            "name": "Balintawak",               "line": "LRT-1", "lineIndex": 1,  "lat": 14.6574, "lon": 120.9937, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-monumento",             "name": "Monumento",                "line": "LRT-1", "lineIndex": 2,  "lat": 14.6545, "lon": 120.9838, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-5th-avenue",            "name": "5th Avenue",               "line": "LRT-1", "lineIndex": 3,  "lat": 14.6444, "lon": 120.9835, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-r-papa",                "name": "R. Papa",                  "line": "LRT-1", "lineIndex": 4,  "lat": 14.6358, "lon": 120.9832, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-abad-santos",           "name": "Abad Santos",              "line": "LRT-1", "lineIndex": 5,  "lat": 14.6303, "lon": 120.9815, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-blumentritt",           "name": "Blumentritt",              "line": "LRT-1", "lineIndex": 6,  "lat": 14.6227, "lon": 120.9828, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-tayuman",               "name": "Tayuman",                  "line": "LRT-1", "lineIndex": 7,  "lat": 14.6165, "lon": 120.9828, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-bambang",               "name": "Bambang",                  "line": "LRT-1", "lineIndex": 8,  "lat": 14.6110, "lon": 120.9824, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-doroteo-jose",          "name": "Doroteo Jose",             "line": "LRT-1", "lineIndex": 9,  "lat": 14.6055, "lon": 120.9819, "status": "Normal", "isTransfer": true,  "transferTo": ["LRT-2"]},
+    {"id": "lrt1-carriedo",              "name": "Carriedo",                 "line": "LRT-1", "lineIndex": 10, "lat": 14.5990, "lon": 120.9810, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-central-terminal",      "name": "Central Terminal",         "line": "LRT-1", "lineIndex": 11, "lat": 14.5925, "lon": 120.9816, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-un-avenue",             "name": "United Nations",           "line": "LRT-1", "lineIndex": 12, "lat": 14.5822, "lon": 120.9846, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-pedro-gil",             "name": "Pedro Gil",                "line": "LRT-1", "lineIndex": 13, "lat": 14.5762, "lon": 120.9879, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-quirino",               "name": "Quirino",                  "line": "LRT-1", "lineIndex": 14, "lat": 14.5703, "lon": 120.9914, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-vito-cruz",             "name": "Vito Cruz",                "line": "LRT-1", "lineIndex": 15, "lat": 14.5636, "lon": 120.9946, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-gil-puyat",             "name": "Gil Puyat",                "line": "LRT-1", "lineIndex": 16, "lat": 14.5544, "lon": 120.9966, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-libertad",              "name": "Libertad",                 "line": "LRT-1", "lineIndex": 17, "lat": 14.5477, "lon": 120.9985, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-edsa",                  "name": "EDSA",                     "line": "LRT-1", "lineIndex": 18, "lat": 14.5392, "lon": 121.0005, "status": "Normal", "isTransfer": true,  "transferTo": ["MRT-3"]},
+    {"id": "lrt1-baclaran",              "name": "Baclaran",                 "line": "LRT-1", "lineIndex": 19, "lat": 14.5340, "lon": 120.9982, "status": "Normal", "isTransfer": false},
+    {"id": "lrt1-redemptorist-aseana",   "name": "Redemptorist-Aseana",      "line": "LRT-1", "lineIndex": 20, "lat": 14.5218, "lon": 121.0003, "status": "Normal", "isTransfer": false, "caviteExtension": true},
+    {"id": "lrt1-mia-road",              "name": "MIA Road",                 "line": "LRT-1", "lineIndex": 21, "lat": 14.5131, "lon": 120.9985, "status": "Normal", "isTransfer": false, "caviteExtension": true},
+    {"id": "lrt1-pitx",                  "name": "PITX",                     "line": "LRT-1", "lineIndex": 22, "lat": 14.4985, "lon": 120.9925, "status": "Normal", "isTransfer": false, "caviteExtension": true},
+    {"id": "lrt1-ninoy-aquino-ave",      "name": "Ninoy Aquino Ave",         "line": "LRT-1", "lineIndex": 23, "lat": 14.4865, "lon": 120.9892, "status": "Normal", "isTransfer": false, "caviteExtension": true},
+    {"id": "lrt1-dr-santos",             "name": "Dr. Santos",               "line": "LRT-1", "lineIndex": 24, "lat": 14.4714, "lon": 120.9849, "status": "Normal", "isTransfer": false, "caviteExtension": true},
+    {"id": "lrt2-recto",                 "name": "Recto",                    "line": "LRT-2", "lineIndex": 0,  "lat": 14.6033, "lon": 120.9836, "status": "Normal", "isTransfer": true,  "transferTo": ["LRT-1"]},
+    {"id": "lrt2-legarda",               "name": "Legarda",                  "line": "LRT-2", "lineIndex": 1,  "lat": 14.6014, "lon": 120.9928, "status": "Normal", "isTransfer": false},
+    {"id": "lrt2-pureza",                "name": "Pureza",                   "line": "LRT-2", "lineIndex": 2,  "lat": 14.6019, "lon": 121.0017, "status": "Normal", "isTransfer": false},
+    {"id": "lrt2-v-mapa",                "name": "V. Mapa",                  "line": "LRT-2", "lineIndex": 3,  "lat": 14.6040, "lon": 121.0095, "status": "Normal", "isTransfer": false},
+    {"id": "lrt2-j-ruiz",                "name": "J. Ruiz",                  "line": "LRT-2", "lineIndex": 4,  "lat": 14.6108, "lon": 121.0264, "status": "Normal", "isTransfer": false},
+    {"id": "lrt2-gilmore",               "name": "Gilmore",                  "line": "LRT-2", "lineIndex": 5,  "lat": 14.6134, "lon": 121.0340, "status": "Normal", "isTransfer": false},
+    {"id": "lrt2-betty-go-belmonte",     "name": "Betty Go-Belmonte",        "line": "LRT-2", "lineIndex": 6,  "lat": 14.6157, "lon": 121.0432, "status": "Normal", "isTransfer": false},
+    {"id": "lrt2-araneta-cubao",         "name": "Cubao",                    "line": "LRT-2", "lineIndex": 7,  "lat": 14.6225, "lon": 121.0530, "status": "Normal", "isTransfer": true,  "transferTo": ["MRT-3"]},
+    {"id": "lrt2-anonas",                "name": "Anonas",                   "line": "LRT-2", "lineIndex": 8,  "lat": 14.6280, "lon": 121.0650, "status": "Normal", "isTransfer": false},
+    {"id": "lrt2-katipunan",             "name": "Katipunan",                "line": "LRT-2", "lineIndex": 9,  "lat": 14.6310, "lon": 121.0730, "status": "Normal", "isTransfer": false},
+    {"id": "lrt2-santolan",              "name": "Santolan",                 "line": "LRT-2", "lineIndex": 10, "lat": 14.6221, "lon": 121.0863, "status": "Normal", "isTransfer": false},
+    {"id": "lrt2-marikina",              "name": "Marikina-Pasig",           "line": "LRT-2", "lineIndex": 11, "lat": 14.6206, "lon": 121.1001, "status": "Normal", "isTransfer": false},
+    {"id": "lrt2-antipolo",              "name": "Antipolo",                 "line": "LRT-2", "lineIndex": 12, "lat": 14.6246, "lon": 121.1213, "status": "Normal", "isTransfer": false}
+  ]
+}

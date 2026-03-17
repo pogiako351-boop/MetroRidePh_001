@@ -174,7 +174,7 @@ export default function MetroAIScreen() {
   const { analyzeImage, isLoading: isAnalyzing } = useImageAnalysis();
   const { transcribeAudio, isLoading: isTranscribing } = useAudioTranscription();
 
-  const { isLiveData } = useTransitDataSync();
+  const { isLiveData, cloudStations, lastSync } = useTransitDataSync();
 
   const isLoading = isGenerating || isAnalyzing || isTranscribing;
 
@@ -264,7 +264,28 @@ export default function MetroAIScreen() {
       setInputText('');
 
       const trimmedHistory = buildContextHistory(messages);
-      const liveDataNote = isLiveData ? '\n[Live Cloud Data: Active — fare matrix and station data is up to date from cloud sync]' : '';
+
+      // Build live cloud data context — injected into the prompt when Supabase is online.
+      // Includes station statuses and last-sync timestamp so MetroAI can surface real-time
+      // conditions (e.g., delayed or closed stations) from the primary Supabase source.
+      let liveDataNote = '';
+      if (isLiveData && cloudStations && cloudStations.length > 0) {
+        const syncTimeStr = lastSync ? lastSync.toLocaleTimeString() : 'recently';
+        const abnormal = cloudStations.filter((s) => s.status && s.status !== 'Normal');
+        const statusSummary =
+          abnormal.length > 0
+            ? abnormal.map((s) => `${s.name} (${s.line}): ${s.status}`).join(', ')
+            : 'All stations operating normally';
+        liveDataNote =
+          `\n[Live Cloud Data: Active — Supabase real-time sync at ${syncTimeStr}]\n` +
+          `[Station Status (${cloudStations.length} stations from Supabase): ${statusSummary}]\n` +
+          `[Fare Matrix: 2026 official tables active — LRT-1 Cavite Extension (FPJ→Dr. Santos) confirmed]`;
+      } else if (isLiveData) {
+        liveDataNote = '\n[Live Cloud Data: Active — fare matrix and station data is up to date from Supabase cloud sync]';
+      } else {
+        liveDataNote = '\n[Offline Mode: Serving from cached 2026 fare tables and station data]';
+      }
+
       const fullPrompt = `${SYSTEM_CONTEXT}${liveDataNote}\n\nConversation history:\n${trimmedHistory}\n\nUser: ${text.trim()}\n\nAssistant:`;
 
       try {
@@ -302,7 +323,7 @@ export default function MetroAIScreen() {
         hapticWarning();
       }
     },
-    [isLoading, generateText, buildContextHistory, isLiveData, messages]
+    [isLoading, generateText, buildContextHistory, isLiveData, cloudStations, lastSync, messages]
   );
 
   const startRecording = useCallback(async () => {

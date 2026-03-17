@@ -41,6 +41,15 @@ const SHELL_PRECACHE = [
   '/about',
 ];
 
+// ── Pre-cache: essential transit data (fare tables + full station list) ────
+// The transit manifest contains the official 2026 fare tables (LRT-1 Cavite
+// Extension, MRT-3, LRT-2), all 51 station records, and the Cavite Extension
+// confirmation data. Pre-caching this during registration guarantees offline
+// fare calculation and station lookup without any network round-trip.
+const DATA_PRECACHE = [
+  '/data/transit-manifest-2026.json',
+];
+
 // ── URL pattern matchers ──────────────────────────────────────────────────
 
 /** Static assets → Cache-First: bundles, fonts, icons, images */
@@ -50,6 +59,8 @@ const STATIC_PATTERNS = [
   /\.(?:woff2?|ttf|otf|eot)$/,
   /\.(?:png|jpe?g|gif|svg|ico|webp)$/,
   /manifest\.json$/,
+  // Transit data manifest — Cache-First after pre-cache during install
+  /\/data\/transit-manifest-2026\.json/,
 ];
 
 /** Station / fare data → Stale-While-Revalidate (24h TTL) */
@@ -94,18 +105,30 @@ const AI_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(SHELL_CACHE)
-      .then((cache) =>
-        // Pre-cache all critical routes — partial failures are tolerated
+    Promise.all([
+      // 1. Pre-cache the app shell + all primary routes (fare calculator, route
+      //    planner, MetroAI, diagnostics, etc.) — partial failures are tolerated.
+      caches.open(SHELL_CACHE).then((cache) =>
         cache.addAll(SHELL_PRECACHE).catch((err) => {
           console.warn('[MetroRide SW v5] Shell pre-cache partial failure:', err);
         }),
-      )
-      .then(() => {
-        console.log('[MetroRide SW v5] Installed — Immortal PWA active · AI offline mode ready');
-        return self.skipWaiting();
-      }),
+      ),
+      // 2. Pre-cache essential transit data: 2026 fare tables (LRT-1 including
+      //    Cavite Extension, MRT-3, LRT-2), full 51-station list, and Cavite
+      //    Extension confirmation. Stored in DATA_CACHE so Cache Integrity check
+      //    detects metroride-data-* immediately after installation.
+      caches.open(DATA_CACHE).then((cache) =>
+        cache.addAll(DATA_PRECACHE).catch((err) => {
+          console.warn('[MetroRide SW v5] Transit data pre-cache partial failure (will retry on fetch):', err);
+        }),
+      ),
+    ]).then(() => {
+      console.log(
+        '[MetroRide SW v5] Installed — Immortal PWA active · 2026 fare tables pre-cached · ' +
+        'LRT-1 Cavite Extension (25 stations) ready · AI offline mode ready',
+      );
+      return self.skipWaiting();
+    }),
   );
 });
 
