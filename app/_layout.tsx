@@ -16,6 +16,7 @@ import {
   registerOperationHandler,
 } from '@/utils/offlineSyncQueue';
 import { handleQueuedReport, handleQueuedUpvote } from '@/utils/communityReports';
+import { initVaultAppStateTracking } from '@/utils/vaultSession';
 
 const ONBOARDING_DONE_KEY = '@metroride_onboarded';
 
@@ -47,6 +48,9 @@ export default function RootLayout() {
     // Start Guardian monitoring in the background
     startGuardian();
 
+    // Initialize vault session AppState tracking (5-min background timeout)
+    const cleanupVault = initVaultAppStateTracking();
+
     // ── Background sync queue setup ──────────────────────────────────────
     // Register per-type handlers so the queue knows how to replay each
     // operation that was queued while the app was offline.
@@ -71,6 +75,7 @@ export default function RootLayout() {
     return () => {
       stopGuardian();
       stopSyncQueueListener();
+      cleanupVault();
     };
   }, []);
 

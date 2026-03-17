@@ -19,6 +19,8 @@ import {
   DiagnosticResult,
 } from '@/utils/connectivityDiagnostic';
 import { supabaseConfigStatus, SUPABASE_TARGET_REGION, PRODUCTION_ORIGIN } from '@/utils/supabase';
+import NeonOnyxVault from '@/components/ui/NeonOnyxVault';
+import { hasValidVaultSession, grantVaultSession } from '@/utils/vaultSession';
 
 // ── Status display config ─────────────────────────────────────────────────
 
@@ -66,6 +68,17 @@ export default function DiagnosticsScreen() {
   const [running, setRunning] = useState(false);
   const hasAutoRun = useRef(false);
 
+  // ── Vault guard ─────────────────────────────────────────────────────────
+  const [vaultChecked, setVaultChecked] = useState(false);
+  const [vaultOpen, setVaultOpen] = useState(false);
+
+  useEffect(() => {
+    hasValidVaultSession().then((valid) => {
+      if (!valid) setVaultOpen(true);
+      setVaultChecked(true);
+    });
+  }, []);
+
   const runDiagnostic = useCallback(async () => {
     if (running) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -96,8 +109,28 @@ export default function DiagnosticsScreen() {
 
   const overallCfg = report ? OVERALL_CONFIG[report.overallStatus] : null;
 
+  // Show loading until vault check is done
+  if (!vaultChecked) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color="#40E0FF" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.root}>
+      {/* Vault PIN gate — overlays the entire screen until authenticated */}
+      <NeonOnyxVault
+        visible={vaultOpen}
+        title="PULSE DIAGNOSTIC"
+        subtitle="// SYSTEM HEALTH MONITOR //"
+        onSuccess={() => {
+          grantVaultSession();
+          setVaultOpen(false);
+        }}
+        onCancel={() => router.back()}
+      />
       <StatusBar barStyle="light-content" backgroundColor="#0A0F1E" />
 
       {/* Header */}

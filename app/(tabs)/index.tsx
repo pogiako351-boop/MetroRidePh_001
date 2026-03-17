@@ -39,6 +39,7 @@ import { hapticLight, hapticMedium, hapticSuccess, hapticDoubleTap } from '@/uti
 import { useTransitDataSync } from '@/utils/transitDataSync';
 import LiveDataBadge from '@/components/ui/LiveDataBadge';
 import { Skeleton, StationCardSkeleton } from '@/components/ui/Skeleton';
+import PulseStatusLED from '@/components/ui/PulseStatusLED';
 
 const QUICK_ACTIONS = [
   { id: 'ai', title: 'MetroAI\nAssistant', icon: 'chatbubbles-outline' as const, color: Colors.electricCyan, route: '/metro-ai' },
@@ -391,7 +392,11 @@ export default function DashboardScreen() {
               </View>
             </View>
             <View style={styles.headerRight}>
-              <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
+              <View style={styles.timeRow}>
+                <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
+                {/* Discreet system health indicator — Pulse LED (owner-facing) */}
+                <PulseStatusLED tappable />
+              </View>
               <Pressable
                 onPress={() => { hapticLight(); router.push('/settings'); }}
                 style={styles.settingsButton}
@@ -1067,6 +1072,11 @@ const styles = StyleSheet.create({
   headerRight: {
     alignItems: 'flex-end',
     gap: Spacing.sm,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   timeText: {
     fontSize: FontSize.lg,

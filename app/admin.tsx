@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
-  TextInput,
   Platform,
   RefreshControl,
 } from 'react-native';
@@ -22,7 +21,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTextGeneration } from '@fastshot/ai';
 
 import {
@@ -48,11 +46,8 @@ import {
 } from '@/utils/sentinel';
 import { runConnectivityDiagnostic, FullDiagnosticReport } from '@/utils/connectivityDiagnostic';
 import { rateLimiter } from '@/utils/rateLimiter';
-
-// ── Auth ──────────────────────────────────────────────────────────────────
-const ADMIN_SESSION_KEY     = '@metroride_admin_session';
-const SESSION_DURATION_MS   = 30 * 60_000; // 30 minutes
-const CORRECT_PIN           = '2026'; // MetroRide 2026 admin PIN
+import NeonOnyxVault from '@/components/ui/NeonOnyxVault';
+import { hasValidVaultSession, grantVaultSession } from '@/utils/vaultSession';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -84,98 +79,6 @@ function timeAgo(iso: string): string {
 }
 
 // ── PIN Screen ────────────────────────────────────────────────────────────
-
-function PinScreen({ onSuccess }: { onSuccess: () => void }) {
-  const [pin, setPin]     = useState('');
-  const [error, setError] = useState('');
-
-  const handleSubmit = useCallback(() => {
-    if (pin === CORRECT_PIN) {
-      AsyncStorage.setItem(
-        ADMIN_SESSION_KEY,
-        JSON.stringify({ ts: Date.now() }),
-      ).catch(() => {});
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onSuccess();
-    } else {
-      setError('Incorrect PIN. Try again.');
-      setPin('');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  }, [pin, onSuccess]);
-
-  return (
-    <View style={pinStyles.root}>
-      <LinearGradient colors={['#0D1B3E', '#08090A']} style={pinStyles.bg} />
-      <View style={pinStyles.card}>
-        <View style={pinStyles.iconBg}>
-          <Ionicons name="shield-checkmark" size={40} color="#40E0FF" />
-        </View>
-        <Text style={pinStyles.title}>Control Center</Text>
-        <Text style={pinStyles.sub}>Enter admin PIN to continue</Text>
-
-        <TextInput
-          style={pinStyles.input}
-          value={pin}
-          onChangeText={(t) => { setPin(t); setError(''); }}
-          placeholder="••••"
-          placeholderTextColor="rgba(255,255,255,0.2)"
-          keyboardType="number-pad"
-          secureTextEntry
-          maxLength={6}
-          autoFocus
-          returnKeyType="go"
-          onSubmitEditing={handleSubmit}
-        />
-
-        {!!error && (
-          <Text style={pinStyles.error}>{error}</Text>
-        )}
-
-        <TouchableOpacity style={pinStyles.btn} onPress={handleSubmit} activeOpacity={0.85}>
-          <Text style={pinStyles.btnText}>Authenticate</Text>
-        </TouchableOpacity>
-
-        <Text style={pinStyles.hint}>
-          Default PIN: 2026
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-const pinStyles = StyleSheet.create({
-  root: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  bg:   { ...StyleSheet.absoluteFillObject },
-  card: {
-    width: '100%', maxWidth: 340,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(64,224,255,0.25)',
-    borderRadius: 24, padding: 32, alignItems: 'center',
-  },
-  iconBg: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: 'rgba(64,224,255,0.1)',
-    borderWidth: 1.5, borderColor: 'rgba(64,224,255,0.3)',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-  },
-  title: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 6 },
-  sub:   { fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 24 },
-  input: {
-    width: '100%', backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1, borderColor: 'rgba(64,224,255,0.3)',
-    borderRadius: 14, padding: 16, textAlign: 'center',
-    fontSize: 24, color: '#fff', letterSpacing: 8, marginBottom: 12,
-  },
-  error:   { fontSize: 13, color: '#FF4444', marginBottom: 12 },
-  btn: {
-    width: '100%', backgroundColor: '#40E0FF',
-    borderRadius: 14, paddingVertical: 16,
-    alignItems: 'center', marginBottom: 16,
-  },
-  btnText: { fontSize: 16, fontWeight: '800', color: '#0A0F1E' },
-  hint:    { fontSize: 11, color: 'rgba(255,255,255,0.25)' },
-});
 
 // ── Metric Bar ────────────────────────────────────────────────────────────
 
@@ -243,19 +146,17 @@ export default function AdminScreen() {
   // AI hook
   const { generateText, isLoading: aiLoading } = useTextGeneration();
 
-  // ── Session check ──────────────────────────────────────────────────────
+  // ── Vault session check ─────────────────────────────────────────────────
+  const [vaultOpen, setVaultOpen] = useState(false);
+
   useEffect(() => {
-    AsyncStorage.getItem(ADMIN_SESSION_KEY)
-      .then((raw) => {
-        if (!raw) { setAuthenticated(false); return; }
-        const { ts } = JSON.parse(raw);
-        if (Date.now() - ts < SESSION_DURATION_MS) {
-          setAuthenticated(true);
-        } else {
-          setAuthenticated(false);
-        }
-      })
-      .catch(() => setAuthenticated(false));
+    hasValidVaultSession().then((valid) => {
+      if (!valid) setVaultOpen(true);
+      setAuthenticated(valid);
+    }).catch(() => {
+      setAuthenticated(false);
+      setVaultOpen(true);
+    });
   }, []);
 
   // ── Load data once authenticated ───────────────────────────────────────
@@ -382,12 +283,20 @@ export default function AdminScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: '#08090A', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color="#40E0FF" />
+        {/* Vault modal shown during initial check if needed */}
+        <NeonOnyxVault
+          visible={vaultOpen}
+          title="CONTROL CENTER"
+          subtitle="// ADMIN ACCESS REQUIRED //"
+          onSuccess={() => {
+            grantVaultSession();
+            setVaultOpen(false);
+            setAuthenticated(true);
+          }}
+          onCancel={() => router.back()}
+        />
       </View>
     );
-  }
-
-  if (!authenticated) {
-    return <PinScreen onSuccess={() => setAuthenticated(true)} />;
   }
 
   // ── Status summary ─────────────────────────────────────────────────────
@@ -414,6 +323,19 @@ export default function AdminScreen() {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
+
+      {/* Vault PIN gate — overlays the full screen when session is invalid */}
+      <NeonOnyxVault
+        visible={vaultOpen}
+        title="CONTROL CENTER"
+        subtitle="// ADMIN ACCESS REQUIRED //"
+        onSuccess={() => {
+          grantVaultSession();
+          setVaultOpen(false);
+          setAuthenticated(true);
+        }}
+        onCancel={() => router.back()}
+      />
 
       {/* Header */}
       <LinearGradient
