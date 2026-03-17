@@ -1,5 +1,5 @@
 /**
- * MetroRide PH — Service Worker v4 · Immortal PWA
+ * MetroRide PH — Service Worker v5 · Immortal PWA
  * Guardian-level offline resilience for Philippine metro commuters.
  *
  * Caching Strategy:
@@ -10,22 +10,35 @@
  *  - Offline Fallback:        Full functional shell when all networks fail
  *
  * Offline Guarantee:
- *  Users can view stations, calculate fares, and open the transit map
- *  without interruption even when completely offline.
+ *  Users can view stations, calculate fares, use MetroAI (cached context),
+ *  and open the transit map without interruption even when completely offline.
+ *  Community reports and crowd-level updates are queued and synced automatically
+ *  when connectivity is restored.
  */
 
-const CACHE_VERSION   = 'v4';
-const SHELL_CACHE     = `metroride-shell-${CACHE_VERSION}`;
-const ASSETS_CACHE    = `metroride-assets-${CACHE_VERSION}`;
-const DATA_CACHE      = `metroride-data-${CACHE_VERSION}`;
-const STATION_CACHE   = `metroride-station-${CACHE_VERSION}`; // SWR for station/fare data
-const REPORTS_CACHE   = `metroride-reports-${CACHE_VERSION}`; // Network-first for live reports
+const CACHE_VERSION  = 'v5';
+const SHELL_CACHE    = `metroride-shell-${CACHE_VERSION}`;
+const ASSETS_CACHE   = `metroride-assets-${CACHE_VERSION}`;
+const DATA_CACHE     = `metroride-data-${CACHE_VERSION}`;
+const STATION_CACHE  = `metroride-station-${CACHE_VERSION}`; // SWR for station/fare data
+const REPORTS_CACHE  = `metroride-reports-${CACHE_VERSION}`; // Network-first for live reports
+const AI_CACHE       = `metroride-ai-${CACHE_VERSION}`;      // MetroAI context + model responses
 
-const ALL_CACHES = [SHELL_CACHE, ASSETS_CACHE, DATA_CACHE, STATION_CACHE, REPORTS_CACHE];
+const ALL_CACHES = [SHELL_CACHE, ASSETS_CACHE, DATA_CACHE, STATION_CACHE, REPORTS_CACHE, AI_CACHE];
 
-// ── Pre-cache: app shell URLs ─────────────────────────────────────────────
+// ── Pre-cache: critical app shell + all main routes ───────────────────────
+// Pre-caching all primary routes ensures MetroAI, fare calculator, and route
+// planner are all immediately available offline without a network round-trip.
 const SHELL_PRECACHE = [
   '/',
+  '/fare-calculator',
+  '/route-planner',
+  '/metro-ai',
+  '/transit-map',
+  '/diagnostics',
+  '/settings',
+  '/beep-card',
+  '/about',
 ];
 
 // ── URL pattern matchers ──────────────────────────────────────────────────
@@ -56,14 +69,26 @@ const LIVE_REPORT_PATTERNS = [
   /\/rest\/v1\/crowd_levels/,
 ];
 
-/** Supabase / Newell AI → Network-First with stale fallback */
-const API_PATTERNS = [
-  /supabase\.co/,
+/**
+ * MetroAI / Newell AI + Fastshot → Network-First with AI cache fallback.
+ * Cached AI responses allow MetroAI to surface recent answers even offline.
+ */
+const AI_PATTERNS = [
   /fastshot\.ai/,
+  /newell.*\/v1\/(chat|generate|transcribe|vision)/,
+  /api\.newell/,
+];
+
+/** Supabase → Network-First with stale data fallback */
+const SUPABASE_PATTERNS = [
+  /supabase\.co/,
 ];
 
 // Station data cache TTL: 24 hours
 const STATION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+// AI cache TTL: 2 hours (keep recent AI context available offline)
+const AI_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
 
 // ─── Install ──────────────────────────────────────────────────────────────
 
@@ -72,12 +97,13 @@ self.addEventListener('install', (event) => {
     caches
       .open(SHELL_CACHE)
       .then((cache) =>
+        // Pre-cache all critical routes — partial failures are tolerated
         cache.addAll(SHELL_PRECACHE).catch((err) => {
-          console.warn('[MetroRide SW v4] Shell pre-cache partial failure:', err);
+          console.warn('[MetroRide SW v5] Shell pre-cache partial failure:', err);
         }),
       )
       .then(() => {
-        console.log('[MetroRide SW v4] Installed — Immortal PWA active');
+        console.log('[MetroRide SW v5] Installed — Immortal PWA active · AI offline mode ready');
         return self.skipWaiting();
       }),
   );
@@ -95,7 +121,7 @@ self.addEventListener('activate', (event) => {
           names
             .filter((n) => n.startsWith('metroride-') && !keep.has(n))
             .map((n) => {
-              console.log('[MetroRide SW v4] Evicting stale cache:', n);
+              console.log('[MetroRide SW v5] Evicting stale cache:', n);
               return caches.delete(n);
             }),
         ),
@@ -126,25 +152,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Other Supabase / AI API → Network-First with stale data fallback
-  if (API_PATTERNS.some((p) => p.test(request.url))) {
+  // 3. MetroAI / Newell AI → Network-First with AI cache (offline context)
+  if (AI_PATTERNS.some((p) => p.test(request.url))) {
+    event.respondWith(networkFirstWithTTL(request, AI_CACHE, 10000, AI_CACHE_TTL_MS));
+    return;
+  }
+
+  // 4. Supabase → Network-First with stale data fallback
+  if (SUPABASE_PATTERNS.some((p) => p.test(request.url))) {
     event.respondWith(networkFirst(request, DATA_CACHE, 10000));
     return;
   }
 
-  // 4. Static assets (JS bundles, fonts, icons) → Cache-First
+  // 5. Static assets (JS bundles, fonts, icons) → Cache-First
   if (STATIC_PATTERNS.some((p) => p.test(request.url))) {
     event.respondWith(cacheFirst(request, ASSETS_CACHE));
     return;
   }
 
-  // 5. HTML navigation → Network-First with offline shell fallback
+  // 6. HTML navigation → Network-First with offline shell fallback
   if (request.mode === 'navigate') {
     event.respondWith(navigationFetch(request));
     return;
   }
 
-  // 6. Everything else → Stale-While-Revalidate
+  // 7. Everything else → Stale-While-Revalidate
   event.respondWith(staleWhileRevalidate(request, ASSETS_CACHE));
 });
 
@@ -166,12 +198,59 @@ async function networkFirst(request, cacheName, timeoutMs = 8000) {
     if (cached) return cached;
     return new Response(
       JSON.stringify({
-        error: 'offline',
+        error:   'offline',
         message: 'MetroRide is offline — cached data shown.',
         offline: true,
       }),
       {
-        status: 503,
+        status:  503,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+  }
+}
+
+// ─── Strategy: Network-First with TTL stamping ────────────────────────────
+// Used for AI cache: serve fresh responses when available, stale within TTL,
+// and a graceful offline JSON when completely unavailable.
+
+async function networkFirstWithTTL(request, cacheName, timeoutMs, ttlMs) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const response = await fetch(request.clone(), { signal: controller.signal });
+    clearTimeout(timer);
+    if (response.ok) {
+      const cache = await caches.open(cacheName);
+      const headers = new Headers(response.headers);
+      headers.set('sw-cached-at', String(Date.now()));
+      const stamped = new Response(response.clone().body, {
+        status:     response.status,
+        statusText: response.statusText,
+        headers,
+      });
+      cache.put(request, stamped);
+    }
+    return response;
+  } catch (_) {
+    const cache   = await caches.open(cacheName);
+    const cached  = await cache.match(request);
+    if (cached) {
+      const cachedAt = cached.headers.get('sw-cached-at');
+      const age      = cachedAt ? Date.now() - parseInt(cachedAt, 10) : Infinity;
+      // Serve cached AI response within TTL
+      if (age <= ttlMs) return cached;
+    }
+    // Beyond TTL or no cache — return offline stub
+    return new Response(
+      JSON.stringify({
+        error:   'ai_offline',
+        message: 'MetroAI is temporarily offline. Cached context is active.',
+        offline: true,
+        cached:  !!cached,
+      }),
+      {
+        status:  503,
         headers: { 'Content-Type': 'application/json' },
       },
     );
@@ -198,7 +277,7 @@ async function cacheFirst(request, cacheName) {
 // ─── Strategy: Stale-While-Revalidate ────────────────────────────────────
 
 async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName);
+  const cache  = await caches.open(cacheName);
   const cached = await cache.match(request);
 
   const fetchPromise = fetch(request.clone())
@@ -266,7 +345,7 @@ async function staleWhileRevalidateWithTTL(request, cacheName) {
 async function navigationFetch(request) {
   try {
     const response = await fetch(request.clone());
-    const cache = await caches.open(SHELL_CACHE);
+    const cache    = await caches.open(SHELL_CACHE);
     cache.put(request, response.clone());
     return response;
   } catch (_) {
@@ -279,13 +358,31 @@ async function navigationFetch(request) {
     if (offline) return offline;
 
     // Last-resort: full offline fallback page with Neon Onyx styling
-    // This page provides access to fare calculator and route planner
     return new Response(offlineFallbackHTML(), {
       status:  200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
   }
 }
+
+// ─── Background Sync API ──────────────────────────────────────────────────
+// When connectivity returns, the browser fires the 'sync' event.
+// We notify all open clients to flush the offline sync queue.
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'metroride-sync-queue') {
+    event.waitUntil(
+      self.clients
+        .matchAll({ includeUncontrolled: true, type: 'window' })
+        .then((clients) => {
+          for (const client of clients) {
+            client.postMessage({ type: 'FLUSH_SYNC_QUEUE' });
+          }
+        })
+        .catch(() => { /* silent */ }),
+    );
+  }
+});
 
 // ─── Offline Fallback HTML ────────────────────────────────────────────────
 
@@ -301,7 +398,7 @@ function offlineFallbackHTML() {
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;background:#08090A;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#fff;overflow-x:hidden}
     .screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-    .glass{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:20px;padding:32px 28px;text-align:center;max-width:360px;width:100%}
+    .glass{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:20px;padding:32px 28px;text-align:center;max-width:380px;width:100%}
     .icon{font-size:52px;margin-bottom:16px}
     h1{font-size:22px;font-weight:800;margin-bottom:8px;color:#40E0FF}
     .sub{font-size:14px;color:rgba(255,255,255,0.55);line-height:1.6;margin-bottom:24px}
@@ -320,6 +417,7 @@ function offlineFallbackHTML() {
     .dot{width:6px;height:6px;border-radius:50%;display:inline-block}
     .dot-green{background:#22C55E}
     .dot-amber{background:#FFB800}
+    .sync-row{margin-top:12px;padding:10px 14px;background:rgba(64,224,255,0.06);border:1px solid rgba(64,224,255,0.15);border-radius:10px;font-size:11px;color:rgba(255,255,255,0.45);text-align:left}
     .footer{font-size:11px;color:rgba(255,255,255,0.2);margin-top:16px}
   </style>
 </head>
@@ -328,28 +426,38 @@ function offlineFallbackHTML() {
     <div class="glass">
       <div class="icon">🚇</div>
       <h1>You're Offline</h1>
-      <p class="sub">MetroRide PH has activated offline mode.<br/>Cached station data and fare calculator are available.</p>
+      <p class="sub">MetroRide PH has activated offline mode.<br/>Cached station data, fare calculator, and MetroAI context are available.</p>
       <div class="badge">Offline Mode Active</div>
 
       <div class="status-row">
         <span class="status-pill pill-green"><span class="dot dot-green"></span>Fare Data Cached</span>
         <span class="status-pill pill-green"><span class="dot dot-green"></span>Stations Cached</span>
-        <span class="status-pill pill-amber"><span class="dot dot-amber"></span>Live Alerts Unavailable</span>
+        <span class="status-pill pill-green"><span class="dot dot-green"></span>MetroAI Context</span>
+        <span class="status-pill pill-amber"><span class="dot dot-amber"></span>Live Alerts Paused</span>
       </div>
 
-      <div class="actions" style="margin-top:20px">
+      <div class="sync-row">
+        ⏳ Any reports or crowd updates you submit are saved locally and will sync automatically when you reconnect.
+      </div>
+
+      <div class="actions" style="margin-top:16px">
         <button class="btn btn-primary" onclick="goToFare()">Fare Calculator</button>
         <button class="btn btn-secondary" onclick="goToRoute()">Route Planner</button>
       </div>
 
-      <button class="btn btn-secondary" style="width:100%" onclick="tryReload()">Try Reconnect</button>
+      <div class="actions">
+        <button class="btn btn-secondary" onclick="goToAI()">MetroAI</button>
+        <button class="btn btn-secondary" onclick="tryReload()">Try Reconnect</button>
+      </div>
+
       <p class="footer">FPJ → Dr. Santos · 2026 Cavite Extension · LRT-1 / MRT-3 / LRT-2</p>
     </div>
   </div>
   <script>
-    function goToFare(){ window.location.href = '/fare-calculator'; }
-    function goToRoute(){ window.location.href = '/route-planner'; }
-    function tryReload(){ window.location.reload(); }
+    function goToFare()   { window.location.href = '/fare-calculator'; }
+    function goToRoute()  { window.location.href = '/route-planner'; }
+    function goToAI()     { window.location.href = '/metro-ai'; }
+    function tryReload()  { window.location.reload(); }
   </script>
 </body>
 </html>`;
@@ -394,5 +502,19 @@ self.addEventListener('message', (event) => {
     caches.delete(DATA_CACHE).then(() => {
       event.ports[0]?.postMessage({ success: true });
     });
+  }
+
+  // Register a Background Sync tag so the browser can trigger sync
+  // when the device comes back online (even if the tab is closed).
+  if (type === 'REGISTER_BG_SYNC') {
+    const supported = 'sync' in self.registration;
+    if (supported) {
+      self.registration.sync
+        .register('metroride-sync-queue')
+        .then(() => event.ports[0]?.postMessage({ supported: true, registered: true }))
+        .catch(() => event.ports[0]?.postMessage({ supported: true, registered: false }));
+    } else {
+      event.ports[0]?.postMessage({ supported: false, registered: false });
+    }
   }
 });

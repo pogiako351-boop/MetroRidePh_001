@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ALL_STATIONS, Station } from '@/constants/stations';
 import { FARE_TABLES } from '@/constants/fares';
+import { supabase, isSupabaseConfigured } from './supabase';
+import { enqueueOperation } from './offlineSyncQueue';
 
 const KEYS = {
   FAVORITES_STATIONS: '@metroride_fav_stations',
@@ -135,6 +137,54 @@ export async function getCrowdLevels(): Promise<CrowdLevel[]> {
 
 export async function saveCrowdLevels(levels: CrowdLevel[]): Promise<void> {
   await AsyncStorage.setItem(KEYS.CROWD_LEVELS, JSON.stringify(levels));
+}
+
+/**
+ * User-initiated crowd-level update (e.g. from a station detail screen).
+ * Saves locally immediately (optimistic), then queues a cloud sync so
+ * the update reaches Supabase as soon as connectivity returns.
+ */
+export async function submitCrowdLevelUpdate(level: CrowdLevel): Promise<void> {
+  try {
+    // Optimistic local update
+    const current = await getCrowdLevels();
+    const updated = current.filter((l) => l.stationId !== level.stationId);
+    updated.push(level);
+    await AsyncStorage.setItem(KEYS.CROWD_LEVELS, JSON.stringify(updated));
+
+    // Queue cloud sync — flushed automatically when online
+    await enqueueOperation('update_crowd_level', {
+      stationId: level.stationId,
+      level:     level.level,
+      updatedAt: level.updatedAt,
+    } as Record<string, unknown>);
+  } catch {
+    // Silent — local save is the source of truth
+  }
+}
+
+/**
+ * Processes a queued 'update_crowd_level' operation.
+ * Called by the background sync queue flush handler.
+ * Returns true on success, false to reschedule.
+ */
+export async function handleQueuedCrowdLevel(
+  payload: Record<string, unknown>,
+): Promise<boolean> {
+  if (!isSupabaseConfigured || !supabase) return false;
+  try {
+    const { error } = await supabase.from('crowd_levels').upsert(
+      {
+        station_id: payload.stationId,
+        level:      payload.level,
+        updated_at: payload.updatedAt,
+      },
+      { onConflict: 'station_id' },
+    );
+    return !error;
+  } catch {
+    return false;
+  }
 }
 
 // Alerts

@@ -4,12 +4,18 @@ import { StatusBar } from 'expo-status-bar';
 import { Platform, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/theme';
-import { syncOfflineData } from '@/utils/storage';
+import { syncOfflineData, handleQueuedCrowdLevel } from '@/utils/storage';
 import { startGuardian, stopGuardian } from '@/utils/guardian';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import FirstLaunchModal, { checkFirstLaunchAccepted } from '@/components/ui/FirstLaunchModal';
 import { PWAInstallPrompt } from '@/components/ui/PWAInstallPrompt';
 import { PWAInstallBanner } from '@/components/ui/PWAInstallBanner';
+import {
+  startSyncQueueListener,
+  stopSyncQueueListener,
+  registerOperationHandler,
+} from '@/utils/offlineSyncQueue';
+import { handleQueuedReport, handleQueuedUpvote } from '@/utils/communityReports';
 
 const ONBOARDING_DONE_KEY = '@metroride_onboarded';
 
@@ -23,6 +29,18 @@ export default function RootLayout() {
     // Start Guardian monitoring in the background
     startGuardian();
 
+    // ── Background sync queue setup ──────────────────────────────────────
+    // Register per-type handlers so the queue knows how to replay each
+    // operation that was queued while the app was offline.
+    registerOperationHandler('submit_report',     handleQueuedReport);
+    registerOperationHandler('upvote_report',     handleQueuedUpvote);
+    registerOperationHandler('update_crowd_level', handleQueuedCrowdLevel);
+
+    // Start listening for online/offline events and flush on reconnect.
+    // On web this also registers a Background Sync tag so the browser
+    // can trigger a flush even when the tab is backgrounded.
+    startSyncQueueListener();
+
     Promise.all([
       AsyncStorage.getItem(ONBOARDING_DONE_KEY),
       checkFirstLaunchAccepted(),
@@ -31,9 +49,10 @@ export default function RootLayout() {
       setTermsAccepted(accepted);
     });
 
-    // Cleanup Guardian on unmount (hot reload / dev only)
+    // Cleanup on unmount (hot reload / dev only)
     return () => {
       stopGuardian();
+      stopSyncQueueListener();
     };
   }, []);
 

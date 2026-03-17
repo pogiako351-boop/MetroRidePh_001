@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { enqueueOperation } from './offlineSyncQueue';
 
 export type ReportCategory =
   | 'long_lines'
@@ -116,7 +117,7 @@ async function pushReportToCloud(report: CommunityReport): Promise<void> {
   // On web: use Netlify function
   if (base) {
     try {
-      await fetch(`${base}/communityReports`, {
+      const res = await fetch(`${base}/communityReports`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -132,8 +133,22 @@ async function pushReportToCloud(report: CommunityReport): Promise<void> {
         }),
         signal: AbortSignal.timeout(8000),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
-      // Silent — already saved locally
+      // Network failed — queue for background sync when connectivity returns
+      await enqueueOperation('submit_report', {
+        id: report.id,
+        category: report.category as string,
+        stationId: report.stationId,
+        stationName: report.stationName,
+        line: report.line,
+        description: report.description ?? null,
+        reporterId: report.reporterId,
+        createdAt: report.createdAt,
+        expiresAt: report.expiresAt,
+        upvotes: report.upvotes,
+        upvotedBy: report.upvotedBy,
+      } as Record<string, unknown>);
     }
     return;
   }
@@ -141,7 +156,7 @@ async function pushReportToCloud(report: CommunityReport): Promise<void> {
   // On native: use Supabase client directly
   if (isSupabaseConfigured && supabase) {
     try {
-      await supabase.from('community_reports').insert([{
+      const { error } = await supabase.from('community_reports').insert([{
         id: report.id,
         category: report.category,
         station_id: report.stationId,
@@ -154,8 +169,22 @@ async function pushReportToCloud(report: CommunityReport): Promise<void> {
         expires_at: new Date(report.expiresAt).toISOString(),
         reporter_id: report.reporterId,
       }]);
+      if (error) throw error;
     } catch {
-      // Silent — already saved locally
+      // Network failed — queue for background sync
+      await enqueueOperation('submit_report', {
+        id: report.id,
+        category: report.category as string,
+        stationId: report.stationId,
+        stationName: report.stationName,
+        line: report.line,
+        description: report.description ?? null,
+        reporterId: report.reporterId,
+        createdAt: report.createdAt,
+        expiresAt: report.expiresAt,
+        upvotes: report.upvotes,
+        upvotedBy: report.upvotedBy,
+      } as Record<string, unknown>);
     }
   }
 }
@@ -165,14 +194,16 @@ async function pushUpvoteToCloud(reportId: string, userId: string): Promise<void
 
   if (base) {
     try {
-      await fetch(`${base}/communityReports`, {
+      const res = await fetch(`${base}/communityReports`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'upvote', reportId, userId }),
         signal: AbortSignal.timeout(8000),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
-      // Silent
+      // Network failed — queue for background sync
+      await enqueueOperation('upvote_report', { reportId, userId } as Record<string, unknown>);
     }
     return;
   }
@@ -180,25 +211,135 @@ async function pushUpvoteToCloud(reportId: string, userId: string): Promise<void
   // Native fallback via Supabase client
   if (isSupabaseConfigured && supabase) {
     try {
-      const { data: current } = await supabase
+      const { data: current, error: fetchErr } = await supabase
         .from('community_reports')
         .select('upvotes, upvoted_by')
         .eq('id', reportId)
         .single();
 
+      if (fetchErr) throw fetchErr;
+
       if (current && !current.upvoted_by.includes(userId)) {
-        await supabase
+        const { error: updateErr } = await supabase
           .from('community_reports')
           .update({
             upvotes: current.upvotes + 1,
             upvoted_by: [...current.upvoted_by, userId],
           })
           .eq('id', reportId);
+        if (updateErr) throw updateErr;
       }
     } catch {
-      // Silent
+      // Network failed — queue for background sync
+      await enqueueOperation('upvote_report', { reportId, userId } as Record<string, unknown>);
     }
   }
+}
+
+// ── Background-sync flush handlers (called by offlineSyncQueue) ───────────
+
+/** Processes a queued 'submit_report' operation. Returns true on success. */
+export async function handleQueuedReport(
+  payload: Record<string, unknown>,
+): Promise<boolean> {
+  const base = getNetlifyBase();
+
+  if (base) {
+    try {
+      const res = await fetch(`${base}/communityReports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id:          payload.id,
+          category:    payload.category,
+          stationId:   payload.stationId,
+          stationName: payload.stationName,
+          line:        payload.line,
+          description: payload.description ?? null,
+          reporterId:  payload.reporterId,
+          createdAt:   payload.createdAt,
+          expiresAt:   payload.expiresAt,
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { error } = await supabase.from('community_reports').insert([{
+        id:           payload.id,
+        category:     payload.category,
+        station_id:   payload.stationId,
+        station_name: payload.stationName,
+        line:         payload.line,
+        description:  payload.description ?? null,
+        upvotes:      payload.upvotes ?? 1,
+        upvoted_by:   payload.upvotedBy ?? [payload.reporterId],
+        created_at:   new Date(payload.createdAt as number).toISOString(),
+        expires_at:   new Date(payload.expiresAt as number).toISOString(),
+        reporter_id:  payload.reporterId,
+      }]);
+      return !error;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+/** Processes a queued 'upvote_report' operation. Returns true on success. */
+export async function handleQueuedUpvote(
+  payload: Record<string, unknown>,
+): Promise<boolean> {
+  const { reportId, userId } = payload as { reportId: string; userId: string };
+  const base = getNetlifyBase();
+
+  if (base) {
+    try {
+      const res = await fetch(`${base}/communityReports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'upvote', reportId, userId }),
+        signal: AbortSignal.timeout(8000),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data: current, error: fetchErr } = await supabase
+        .from('community_reports')
+        .select('upvotes, upvoted_by')
+        .eq('id', reportId)
+        .single();
+
+      if (fetchErr) throw fetchErr;
+
+      if (current && !current.upvoted_by.includes(userId)) {
+        const { error } = await supabase
+          .from('community_reports')
+          .update({
+            upvotes:    current.upvotes + 1,
+            upvoted_by: [...current.upvoted_by, userId],
+          })
+          .eq('id', reportId);
+        return !error;
+      }
+      return true; // Already upvoted — treat as success
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 // ── Merge cloud + local, deduplicate by id ────────────────────────────────
