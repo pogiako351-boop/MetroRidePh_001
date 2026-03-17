@@ -30,13 +30,13 @@ const rawSupabaseUrl = cleanEnvVar(
 // Supabase requires TLS for all API calls. Strip any accidental http:// prefix
 // and re-attach https://. Also remove trailing slashes so that path segments
 // like /rest/v1/ are always constructed with a single slash separator.
-const supabaseUrl = rawSupabaseUrl
+export const supabaseUrl = rawSupabaseUrl
   ? rawSupabaseUrl
       .replace(/^http:\/\//i, 'https://')
       .replace(/\/+$/, '')
   : '';
 
-const supabaseAnonKey = cleanEnvVar(
+export const supabaseAnonKey = cleanEnvVar(
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.SUPABASE_ANON_KEY,

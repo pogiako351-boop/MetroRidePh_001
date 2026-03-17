@@ -26,6 +26,24 @@ export default function RootLayout() {
   useEffect(() => {
     syncOfflineData();
 
+    // ── Service Worker registration (web only) ────────────────────────────
+    // Register /sw.js so the Pulse diagnostic can detect an active worker and
+    // the PWA can serve cached station/fare data offline.  Runs once on mount.
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js', { scope: '/' })
+        .then((reg) => {
+          console.log('[MetroRide] Service Worker registered:', reg.scope);
+          // Send SKIP_WAITING so any pending worker activates immediately
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+        })
+        .catch((err) => {
+          console.warn('[MetroRide] Service Worker registration failed:', err);
+        });
+    }
+
     // Start Guardian monitoring in the background
     startGuardian();
 

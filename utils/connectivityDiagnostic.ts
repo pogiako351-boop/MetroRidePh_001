@@ -10,7 +10,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SUPABASE_TARGET_REGION, supabaseConfigStatus } from './supabase';
+import { SUPABASE_TARGET_REGION, supabaseConfigStatus, supabaseUrl, supabaseAnonKey } from './supabase';
 
 export interface DiagnosticResult {
   label: string;
@@ -68,22 +68,15 @@ async function checkInternet(): Promise<DiagnosticResult> {
 }
 
 // ── 2. Supabase check ─────────────────────────────────────────────────────
+// Uses the already-cleaned and validated supabaseUrl / supabaseAnonKey that
+// were resolved once at module-load time in utils/supabase.ts.  Re-reading
+// raw env vars here would risk introducing a mismatch between the key used
+// by the Supabase client and the key sent by the diagnostic request.
 
 async function checkSupabase(): Promise<DiagnosticResult> {
-  const rawUrl = cleanVar(
-    process.env.EXPO_PUBLIC_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.SUPABASE_URL,
-  );
-  const url = rawUrl
-    ? rawUrl.replace(/^http:\/\//i, 'https://').replace(/\/+$/, '')
-    : undefined;
-
-  const key = cleanVar(
-    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY,
-  );
+  // Reuse the module-level cleaned values — same source of truth as the client
+  const url = supabaseUrl;
+  const key = supabaseAnonKey;
 
   if (!url || !key) {
     const missing = !url ? 'EXPO_PUBLIC_SUPABASE_URL' : 'EXPO_PUBLIC_SUPABASE_ANON_KEY';
@@ -99,11 +92,12 @@ async function checkSupabase(): Promise<DiagnosticResult> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(`${url}/rest/v1/`, {
-      method: 'HEAD',
+      method: 'GET',
       headers: {
-        apikey:           key,
-        Authorization:    `Bearer ${key}`,
+        apikey:            key,
+        Authorization:     `Bearer ${key}`,
         'x-client-region': SUPABASE_TARGET_REGION,
+        Accept:            'application/json',
       },
       signal: controller.signal,
     });
@@ -111,11 +105,11 @@ async function checkSupabase(): Promise<DiagnosticResult> {
     const durationMs = Date.now() - start;
 
     if (res.status === 401) {
-      const hint = key ? `Key: ${key.slice(0, 5)}…` : 'Key: (empty)';
+      const hint = key ? `Key prefix: ${key.slice(0, 8)}…` : 'Key: (empty)';
       return {
         label:  'Supabase Reachability',
         status: 'fail',
-        detail: `Missing Config — HTTP 401 via ${SUPABASE_TARGET_REGION} (${durationMs}ms). ${hint}`,
+        detail: `HTTP 401 via ${SUPABASE_TARGET_REGION} (${durationMs}ms) — ${hint}`,
         durationMs,
       };
     }
