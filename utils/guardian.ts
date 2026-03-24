@@ -130,19 +130,21 @@ async function pingSupabase(): Promise<number | null> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(`${url}/rest/v1/`, {
-      method: 'HEAD',
+    // Query a specific table with minimal payload instead of hitting the root
+    // /rest/v1/ endpoint which triggers OpenAPI schema discovery and 401 errors.
+    const res = await fetch(`${url}/rest/v1/stations?select=id&limit=1`, {
+      method: 'GET',
       headers: {
         apikey: key,
         Authorization: `Bearer ${key}`,
         'x-client-region': 'sin-1',
+        Accept: 'application/json',
       },
       signal: controller.signal,
     });
     clearTimeout(timer);
     const latency = Date.now() - start;
-    // 404 is acceptable — the endpoint exists, just no path
-    return res.ok || res.status === 404 ? latency : null;
+    return res.ok ? latency : null;
   } catch {
     return null;
   }

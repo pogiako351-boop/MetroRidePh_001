@@ -137,9 +137,15 @@ export const supabase = isSupabaseConfigured
       // Disable root API access (/rest/v1/) — all queries MUST target tables
       // directly via .from('table_name'). This prevents OpenAPI schema fetching
       // and dynamic discovery from leaking table structure via the anon key.
+      //
+      // `schema` is pinned to 'public' so PostgREST never issues a discovery
+      // GET to /rest/v1/ for schema negotiation.  The Accept-Profile header is
+      // always set explicitly, bypassing any auto-detection path.
       db: {
         schema: 'public',
       },
+      // Explicitly disable the realtime WebSocket from triggering schema
+      // introspection on connect.  eventsPerSecond: 0 keeps the channel idle.
       // Disable realtime for security — we use polling-based sync instead.
       realtime: {
         params: {

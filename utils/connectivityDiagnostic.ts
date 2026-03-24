@@ -91,7 +91,9 @@ async function checkSupabase(): Promise<DiagnosticResult> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(`${url}/rest/v1/`, {
+    // Query a specific table with minimal payload instead of hitting the root
+    // /rest/v1/ endpoint which triggers OpenAPI schema discovery and 401 errors.
+    const res = await fetch(`${url}/rest/v1/stations?select=id&limit=1`, {
       method: 'GET',
       headers: {
         apikey:            key,
@@ -113,7 +115,7 @@ async function checkSupabase(): Promise<DiagnosticResult> {
         durationMs,
       };
     }
-    if (res.ok || res.status === 404) {
+    if (res.ok) {
       return {
         label:      'Supabase Reachability',
         status:     'pass',
