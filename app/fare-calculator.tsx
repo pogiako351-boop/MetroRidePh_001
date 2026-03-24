@@ -337,7 +337,7 @@ function FareReceiptCard({
   primaryLine,
   segments,
 }: FareReceiptCardProps) {
-  const { baseFare, sjtSurcharge, discountAmount, finalFare, ticketType, passengerProfile } =
+  const { baseFare, originalFare, subsidyAmount, hasSubsidy, sjtSurcharge, discountAmount, finalFare, ticketType, passengerProfile } =
     breakdown;
   const profileInfo = PASSENGER_PROFILES.find((p) => p.id === passengerProfile)!;
   const showSJT = sjtSurcharge > 0;
@@ -350,6 +350,18 @@ function FareReceiptCard({
   return (
     <Animated.View entering={ZoomIn.springify().damping(14).stiffness(120)}>
       <View style={receiptStyles.outer}>
+        {/* ── DOTr Government Subsidy Badge ─────────────────────────────── */}
+        {hasSubsidy && (
+          <View style={receiptStyles.subsidyBanner}>
+            <View style={receiptStyles.subsidyBannerInner}>
+              <Ionicons name="shield-checkmark" size={14} color="#00FFFF" />
+              <Text style={receiptStyles.subsidyBannerText}>
+                50% GOV SUBSIDY (MRT-3/LRT-2 ONLY)
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Header strip — dynamic line accent color */}
         <View style={[receiptStyles.header, { backgroundColor: brand.primary }]}>
           <View style={receiptStyles.headerLeft}>
@@ -391,7 +403,7 @@ function FareReceiptCard({
             )}
             <View style={[receiptStyles.ticketBadge, { backgroundColor: 'rgba(255,255,255,0.20)' }]}>
               <Text style={[receiptStyles.ticketBadgeText, { color: brand.textOnBrand }]}>
-                {ticketType === 'beep' ? '💳 Beep' : '🎫 SJT'}
+                {ticketType === 'beep' ? '\uD83D\uDCB3 Beep' : '\uD83C\uDFAB SJT'}
               </Text>
             </View>
           </View>
@@ -430,14 +442,41 @@ function FareReceiptCard({
 
         {/* Line items */}
         <View style={receiptStyles.lineItems}>
-          {/* Base fare */}
+          {/* Base fare — with strikethrough original if subsidized */}
           <View style={receiptStyles.lineItem}>
             <View style={receiptStyles.lineItemLeft}>
               <View style={[receiptStyles.lineItemDot, { backgroundColor: brand.primary }]} />
               <Text style={receiptStyles.lineItemLabel}>Base Fare</Text>
             </View>
-            <Text style={receiptStyles.lineItemAmount}>₱{baseFare.toFixed(2)}</Text>
+            <View style={receiptStyles.fareAmountRow}>
+              {hasSubsidy && originalFare !== baseFare && (
+                <Text style={receiptStyles.originalFareStrike}>
+                  ₱{originalFare.toFixed(2)}
+                </Text>
+              )}
+              <Text style={[
+                receiptStyles.lineItemAmount,
+                hasSubsidy && { color: '#00FFFF' },
+              ]}>
+                ₱{baseFare.toFixed(2)}
+              </Text>
+            </View>
           </View>
+
+          {/* DOTr Subsidy line item */}
+          {hasSubsidy && subsidyAmount > 0 && (
+            <View style={receiptStyles.lineItem}>
+              <View style={receiptStyles.lineItemLeft}>
+                <View
+                  style={[receiptStyles.lineItemDot, { backgroundColor: '#00FFFF' }]}
+                />
+                <Text style={receiptStyles.lineItemLabel}>DOTr 50% Subsidy</Text>
+              </View>
+              <Text style={[receiptStyles.lineItemAmount, { color: '#00FFFF' }]}>
+                −₱{subsidyAmount.toFixed(2)}
+              </Text>
+            </View>
+          )}
 
           {/* SJT surcharge */}
           {showSJT && (
@@ -479,8 +518,13 @@ function FareReceiptCard({
           <View style={receiptStyles.totalRow}>
             <Text style={receiptStyles.totalLabel}>TOTAL</Text>
             <View style={receiptStyles.totalAmountRow}>
-              <Text style={[receiptStyles.totalCurrency, { color: brand.primary }]}>₱</Text>
-              <Text style={[receiptStyles.totalAmount, { color: brand.primary }]}>
+              {hasSubsidy && (
+                <Text style={receiptStyles.originalTotalStrike}>
+                  ₱{originalFare}
+                </Text>
+              )}
+              <Text style={[receiptStyles.totalCurrency, hasSubsidy ? { color: '#00FFFF' } : { color: brand.primary }]}>₱</Text>
+              <Text style={[receiptStyles.totalAmount, hasSubsidy ? { color: '#00FFFF' } : { color: brand.primary }]}>
                 {finalFare}
               </Text>
             </View>
@@ -495,10 +539,11 @@ function FareReceiptCard({
         </View>
 
         {/* Footer — 2026 Precision badge */}
-        <View style={[receiptStyles.footer, { backgroundColor: brand.soft }]}>
-          <Ionicons name="shield-checkmark" size={13} color={brand.softText} />
-          <Text style={[receiptStyles.footerText, { color: brand.softText }]}>
-            2026 Precision · {uniqueLines.map((l) => LINE_FULL_NAMES[l]).join(' + ')} matrix · Offline ready
+        <View style={[receiptStyles.footer, hasSubsidy ? { backgroundColor: 'rgba(0,255,255,0.08)' } : { backgroundColor: brand.soft }]}>
+          <Ionicons name="shield-checkmark" size={13} color={hasSubsidy ? '#00FFFF' : brand.softText} />
+          <Text style={[receiptStyles.footerText, { color: hasSubsidy ? '#00FFFF' : brand.softText }]}>
+            {hasSubsidy ? 'DOTr 2026 Subsidized ' : '2026 Precision '}
+            · {uniqueLines.map((l) => LINE_FULL_NAMES[l]).join(' + ')} matrix · Offline ready
           </Text>
         </View>
       </View>
@@ -515,6 +560,46 @@ const receiptStyles = StyleSheet.create({
     marginBottom: Spacing.lg,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.10)',
+  },
+  subsidyBanner: {
+    backgroundColor: 'rgba(0,255,255,0.08)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,255,255,0.20)',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+  },
+  subsidyBannerInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  subsidyBannerText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.heavy,
+    color: '#00FFFF',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  fareAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  originalFareStrike: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
+    color: '#64748B',
+    textDecorationLine: 'line-through',
+    textDecorationColor: '#64748B',
+  },
+  originalTotalStrike: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.semibold,
+    color: '#64748B',
+    textDecorationLine: 'line-through',
+    textDecorationColor: '#64748B',
+    marginRight: 6,
   },
   header: {
     flexDirection: 'row',
@@ -1059,6 +1144,21 @@ export default function FareCalculatorScreen() {
         {calculated && routes.length > 0 && selectedRoute && breakdown && (
           <Animated.View entering={FadeInUp.duration(500)}>
 
+            {/* ── DOTr Government Subsidy Banner ─────────────────────────── */}
+            {breakdown.hasSubsidy && (
+              <Animated.View entering={FadeIn.duration(400)} style={styles.govSubsidyCard}>
+                <View style={styles.govSubsidyIcon}>
+                  <Ionicons name="shield-checkmark" size={20} color="#00FFFF" />
+                </View>
+                <View style={styles.govSubsidyContent}>
+                  <Text style={styles.govSubsidyTitle}>50% GOV SUBSIDY (MRT-3/LRT-2 ONLY)</Text>
+                  <Text style={styles.govSubsidyDesc}>
+                    DOTr March 2026 fare reduction active. Subsidy applied before discount.
+                  </Text>
+                </View>
+              </Animated.View>
+            )}
+
             {/* Smart Savings Tooltip */}
             <SmartSavingsTooltip
               visible={showSavingsTooltip}
@@ -1179,7 +1279,7 @@ export default function FareCalculatorScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#000000',
   },
   headerNav: {
     flexDirection: 'row',
@@ -1384,6 +1484,48 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     color: Colors.textSecondary,
     textAlign: 'center',
+  },
+  // ── DOTr Government Subsidy Card ─────────────────────────────────────
+  govSubsidyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: 'rgba(0,255,255,0.06)',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(0,255,255,0.25)',
+    shadowColor: '#00FFFF',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  govSubsidyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,255,255,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,255,255,0.30)',
+  },
+  govSubsidyContent: {
+    flex: 1,
+  },
+  govSubsidyTitle: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.heavy,
+    color: '#00FFFF',
+    letterSpacing: 0.8,
+  },
+  govSubsidyDesc: {
+    fontSize: FontSize.xs,
+    color: 'rgba(0,255,255,0.65)',
+    marginTop: 2,
+    lineHeight: 15,
   },
   skeletonReceiptCard: {
     backgroundColor: Colors.surface,

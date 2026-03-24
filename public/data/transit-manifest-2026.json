@@ -1,12 +1,19 @@
 {
   "_meta": {
     "version": "2026",
-    "generated": "2026-03-17",
-    "description": "MetroRide PH — Official 2026 Transit Data Manifest (pre-cached by Service Worker for offline operation)",
+    "generated": "2026-03-23",
+    "description": "MetroRide PH — Official 2026 Transit Data Manifest with DOTr Government Fare Subsidy (pre-cached by Service Worker for offline Immortal Mode)",
     "total_stations": 51,
     "lines": ["LRT-1", "MRT-3", "LRT-2"],
     "cavite_extension": true,
-    "sw_cache_key": "transit-manifest-2026-v1"
+    "sw_cache_key": "transit-manifest-2026-v2",
+    "dotr_subsidy": {
+      "effective_date": "2026-03-23",
+      "subsidy_rate": 0.50,
+      "eligible_lines": ["MRT-3", "LRT-2"],
+      "non_eligible_lines": ["LRT-1"],
+      "note": "DOTr 50% Government Fare Subsidy — MRT-3 and LRT-2 only. LRT-1 remains at standard 2026 rates."
+    }
   },
   "fare_constants": {
     "lrt1": {
@@ -22,6 +29,8 @@
     "mrt3": {
       "sjt_surcharge": 2,
       "fares_by_station_distance": [0, 13, 16, 16, 20, 20, 24, 24, 24, 28, 28, 28, 28],
+      "subsidized_fares_by_station_distance": [0, 6.50, 6.50, 8.00, 8.00, 10.00, 10.00, 10.00, 12.00, 12.00, 12.00, 14.00, 14.00],
+      "subsidy_note": "50% DOTr subsidy: 1-2 stns=6.50, 3-4=8.00, 5-7=10.00, 8-10=12.00, 11-12=14.00",
       "note": "Index = number of stations traveled; fare is symmetric"
     },
     "lrt2": {
@@ -42,7 +51,9 @@
         [ 32, 30, 28, 27, 25, 23, 21, 20, 19, 17, 15,  0, 15],
         [ 35, 32, 30, 28, 27, 25, 23, 21, 20, 19, 17, 15,  0]
       ],
-      "note": "Row = from_index (0=Recto, 12=Antipolo), Col = to_index; Beep Card fares in PHP"
+      "note": "Row = from_index (0=Recto, 12=Antipolo), Col = to_index; Beep Card fares in PHP",
+      "subsidized_fares_by_station_distance": [0, 7.50, 8.50, 9.50, 10.00, 10.50, 11.50, 12.50, 13.50, 14.00, 15.00, 16.00, 17.50],
+      "subsidy_note": "50% DOTr blanket subsidy applied to 2026 base fares. Range: 7.50-17.50"
     },
     "passenger_discounts": {
       "regular": 0,
@@ -117,6 +128,21 @@
         "Ayala": 28,
         "Magallanes": 28,
         "Taft Avenue": 28
+      },
+      "dotr_subsidy": true,
+      "key_fares_from_north_avenue_subsidized": {
+        "Quezon Avenue": 6.50,
+        "GMA Kamuning": 6.50,
+        "Araneta-Cubao": 8.00,
+        "Santolan-Annapolis": 8.00,
+        "Ortigas": 10.00,
+        "Shaw Boulevard": 10.00,
+        "Boni": 10.00,
+        "Guadalupe": 12.00,
+        "Buendia": 12.00,
+        "Ayala": 12.00,
+        "Magallanes": 14.00,
+        "Taft Avenue": 14.00
       }
     },
     "LRT-2": {
@@ -144,6 +170,21 @@
         "Santolan": 30,
         "Marikina-Pasig": 32,
         "Antipolo": 35
+      },
+      "dotr_subsidy": true,
+      "key_fares_from_recto_subsidized": {
+        "Legarda": 7.50,
+        "Pureza": 8.50,
+        "V. Mapa": 9.50,
+        "J. Ruiz": 10.00,
+        "Gilmore": 10.50,
+        "Betty Go-Belmonte": 11.50,
+        "Cubao": 12.50,
+        "Anonas": 13.50,
+        "Katipunan": 14.00,
+        "Santolan": 15.00,
+        "Marikina-Pasig": 16.00,
+        "Antipolo": 17.50
       }
     }
   },

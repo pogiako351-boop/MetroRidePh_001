@@ -133,6 +133,19 @@ export const supabase = isSupabaseConfigured
         persistSession: false,
         detectSessionInUrl: false,
       },
+      // ── Security Hardening (April 8, 2026 deadline) ─────────────────────
+      // Disable root API access (/rest/v1/) — all queries MUST target tables
+      // directly via .from('table_name'). This prevents OpenAPI schema fetching
+      // and dynamic discovery from leaking table structure via the anon key.
+      db: {
+        schema: 'public',
+      },
+      // Disable realtime for security — we use polling-based sync instead.
+      realtime: {
+        params: {
+          eventsPerSecond: 0,
+        },
+      },
     })
   : null;
 

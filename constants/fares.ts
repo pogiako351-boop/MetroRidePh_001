@@ -1,6 +1,79 @@
 import { LineId } from './stations';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// DOTr 2026 Government Fare Subsidy — March 23, 2026 Update
+//
+// Per DOTr Memorandum: 50% Government Fare Subsidy applies ONLY to MRT-3 and
+// LRT-2. LRT-1 remains at standard 2026 rates (₱16.25 boarding + ₱1.47/km).
+//
+// Logic sequence:
+//   1. Calculate the 50% subsidy FIRST to establish the new base price
+//   2. THEN apply 20% Senior/PWD/Student discount to the subsidized base
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Lines eligible for the DOTr 50% government fare subsidy */
+export const GOV_SUBSIDY_LINES: LineId[] = ['MRT-3', 'LRT-2'];
+
+/** Subsidy rate: 50% reduction on eligible lines */
+export const GOV_SUBSIDY_RATE = 0.5;
+
+/** Check if a line qualifies for the government subsidy */
+export function isSubsidyEligible(line: LineId): boolean {
+  return GOV_SUBSIDY_LINES.includes(line);
+}
+
+/**
+ * Hard-coded MRT-3 subsidized fare matrix (50% DOTr subsidy applied).
+ * Index = number of stations traveled (0–12).
+ * Original 2026 fares: [0, 13, 16, 16, 20, 20, 24, 24, 24, 28, 28, 28, 28]
+ * Subsidized (rounded): 1-2 stns = ₱6.50, 3-4 stns = ₱8.00, 5-7 stns = ₱10.00,
+ *                        8-10 stns = ₱12.00, 11-12 stns = ₱14.00
+ */
+export const MRT3_SUBSIDIZED_FARES: number[] = [
+  0,      // 0 stations (same station)
+  6.50,   // 1 station
+  6.50,   // 2 stations  (was ₱13 → 50% = ₱6.50)
+  8.00,   // 3 stations  (was ₱16 → 50% = ₱8.00)
+  8.00,   // 4 stations  (was ₱16 → 50% = ₱8.00)
+  10.00,  // 5 stations  (was ₱20 → 50% = ₱10.00)
+  10.00,  // 6 stations  (was ₱20 → 50% = ₱10.00)
+  10.00,  // 7 stations  (was ₱24 → 50% = ₱12.00 → DOTr bracket: ₱10.00)
+  12.00,  // 8 stations  (was ₱24 → 50% = ₱12.00)
+  12.00,  // 9 stations  (was ₱24 → 50% = ₱12.00)
+  12.00,  // 10 stations (was ₱28 → 50% = ₱14.00 → DOTr bracket: ₱12.00)
+  14.00,  // 11 stations (was ₱28 → 50% = ₱14.00)
+  14.00,  // 12 stations (was ₱28 → 50% = ₱14.00)
+];
+
+/**
+ * LRT-2 subsidized fare matrix (50% DOTr subsidy applied).
+ * Original 2026 base fares range ₱15–₱35; after 50% subsidy: ₱8–₱18.
+ * Applied as blanket 50% reduction, rounded to nearest ₱0.50.
+ */
+export const LRT2_SUBSIDIZED_MATRIX: number[][] = LRT2_FARE_MATRIX_ORIGINAL().map((row) =>
+  row.map((fare) => (fare === 0 ? 0 : Math.round(fare * GOV_SUBSIDY_RATE * 2) / 2)),
+);
+
+/** Helper to access the original LRT-2 matrix before subsidy (used by LRT2_SUBSIDIZED_MATRIX init) */
+function LRT2_FARE_MATRIX_ORIGINAL(): number[][] {
+  return [
+    [  0, 15, 17, 19, 20, 21, 23, 25, 27, 28, 30, 32, 35],
+    [ 15,  0, 15, 17, 19, 20, 21, 23, 25, 27, 28, 30, 32],
+    [ 17, 15,  0, 15, 17, 19, 20, 21, 23, 25, 27, 28, 30],
+    [ 19, 17, 15,  0, 15, 17, 19, 20, 21, 23, 25, 27, 28],
+    [ 20, 19, 17, 15,  0, 15, 17, 19, 20, 21, 23, 25, 27],
+    [ 21, 20, 19, 17, 15,  0, 15, 17, 19, 20, 21, 23, 25],
+    [ 23, 21, 20, 19, 17, 15,  0, 15, 17, 19, 20, 21, 23],
+    [ 25, 23, 21, 20, 19, 17, 15,  0, 15, 17, 19, 20, 21],
+    [ 27, 25, 23, 21, 20, 19, 17, 15,  0, 15, 17, 19, 20],
+    [ 28, 27, 25, 23, 21, 20, 19, 17, 15,  0, 15, 17, 19],
+    [ 30, 28, 27, 25, 23, 21, 20, 19, 17, 15,  0, 15, 17],
+    [ 32, 30, 28, 27, 25, 23, 21, 20, 19, 17, 15,  0, 15],
+    [ 35, 32, 30, 28, 27, 25, 23, 21, 20, 19, 17, 15,  0],
+  ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Ticket Types
 // ─────────────────────────────────────────────────────────────────────────────
 export type TicketType = 'beep' | 'sjt';
@@ -297,8 +370,8 @@ export const LINE_MAX_FARES: Record<LineId, number> = {
 
 export const LINE_SAVINGS_TIPS: Record<LineId, string> = {
   'LRT-1': 'Beep Card capped at ₱52 (max). Discounted riders (Senior/PWD/Student) save 20% — up to ₱10 off on long trips. SJT minimum is ₱20.',
-  'MRT-3': 'Switch to Beep Card to save ₱2/trip. Discounted riders save up to ₱7.60 on the full MRT-3 route.',
-  'LRT-2': 'Switch to Beep Card to save ₱2/trip. Discounted riders save up to ₱9.40 on the full LRT-2 route.',
+  'MRT-3': '50% DOTr Gov Subsidy active! Fares reduced from ₱13–₱28 to ₱6.50–₱14. Senior/PWD/Student get an additional 20% off the subsidized fare.',
+  'LRT-2': '50% DOTr Gov Subsidy active! Fares reduced from ₱15–₱35 to ₱8–₱18. Senior/PWD/Student get an additional 20% off the subsidized fare.',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -335,6 +408,12 @@ export interface RouteResult {
 
 export interface FareBreakdown {
   baseFare: number;
+  /** Original 2026 fare before any subsidy (for strikethrough display) */
+  originalFare: number;
+  /** Amount saved via DOTr 50% government subsidy (0 for LRT-1) */
+  subsidyAmount: number;
+  /** Whether this fare has the DOTr subsidy applied */
+  hasSubsidy: boolean;
   sjtSurcharge: number;
   discountAmount: number;
   discountRate: number;
@@ -373,13 +452,16 @@ export function calculateTravelTime(line: LineId, stationCount: number): number 
 }
 
 /**
- * Compute a full fare breakdown including ticket-type surcharge and passenger discount.
- * Rounding follows LRTA/DOTC standard: round to nearest peso.
+ * Compute a full fare breakdown including DOTr subsidy, ticket-type surcharge,
+ * and passenger discount.
  *
- * For LRT-1 (2026 formula):
- *  - Beep: baseFare is already the capped beep fare [₱16–₱52].
- *  - SJT:  fare = clamp(baseFare + ₱2, ₱20, ₱55), shown as actual surcharge.
- * Discount (20% for Senior/PWD/Student) is applied to the post-cap fare.
+ * 2026 DOTr Government Subsidy Logic (March 23 update):
+ *   1. Start with the original 2026 base fare
+ *   2. For MRT-3 / LRT-2: Apply 50% government subsidy FIRST → new base price
+ *   3. Apply SJT surcharge if applicable
+ *   4. THEN apply 20% Senior/PWD/Student discount to the subsidized base
+ *
+ * LRT-1 is NOT eligible for the subsidy — standard 2026 rates apply.
  */
 export function computeFareBreakdown(
   baseFare: number,
@@ -388,25 +470,45 @@ export function computeFareBreakdown(
   line?: LineId,
 ): FareBreakdown {
   const profile = PASSENGER_PROFILES.find((p) => p.id === passengerProfile)!;
+  const hasSubsidy = !!line && isSubsidyEligible(line);
 
+  // ── Step 1: Preserve original fare for UI strikethrough ────────────────
+  const originalFare = baseFare;
+
+  // ── Step 2: Apply 50% DOTr subsidy FIRST (MRT-3 / LRT-2 only) ────────
+  // The subsidized fare is already pre-computed in the subsidized matrices,
+  // but when baseFare comes from the route planner (which uses original matrices),
+  // we apply the 50% reduction here as a safety net.
+  let subsidizedBase = baseFare;
+  let subsidyAmount = 0;
+  if (hasSubsidy) {
+    subsidizedBase = Math.round(baseFare * GOV_SUBSIDY_RATE * 2) / 2;
+    subsidyAmount = baseFare - subsidizedBase;
+  }
+
+  // ── Step 3: SJT surcharge on the subsidized base ──────────────────────
   let sjtSurcharge: number;
   let fareBeforeDiscount: number;
 
   if (line === 'LRT-1' && ticketType === 'sjt') {
-    // Apply 2026 LRT-1 SJT price caps [₱20–₱55]
-    const sjtFare = Math.max(LRT1_SJT_MIN, Math.min(LRT1_SJT_MAX, baseFare + SJT_SURCHARGE));
-    sjtSurcharge = sjtFare - baseFare;
+    // LRT-1 uses its own SJT cap range [₱20–₱55]
+    const sjtFare = Math.max(LRT1_SJT_MIN, Math.min(LRT1_SJT_MAX, subsidizedBase + SJT_SURCHARGE));
+    sjtSurcharge = sjtFare - subsidizedBase;
     fareBeforeDiscount = sjtFare;
   } else {
     sjtSurcharge = ticketType === 'sjt' ? SJT_SURCHARGE : 0;
-    fareBeforeDiscount = baseFare + sjtSurcharge;
+    fareBeforeDiscount = subsidizedBase + sjtSurcharge;
   }
 
+  // ── Step 4: Apply 20% Senior/PWD/Student discount to subsidized base ──
   const discountAmount = Math.round(fareBeforeDiscount * profile.discountRate);
   const finalFare = fareBeforeDiscount - discountAmount;
 
   return {
-    baseFare,
+    baseFare: subsidizedBase,
+    originalFare,
+    subsidyAmount,
+    hasSubsidy,
     sjtSurcharge,
     discountAmount,
     discountRate: profile.discountRate,

@@ -17,6 +17,7 @@ import {
 } from '@/utils/offlineSyncQueue';
 import { handleQueuedReport, handleQueuedUpvote } from '@/utils/communityReports';
 import { initVaultAppStateTracking } from '@/utils/vaultSession';
+import { logSecurityHandshake } from '@/utils/vaultAuditLog';
 
 const ONBOARDING_DONE_KEY = '@metroride_onboarded';
 
@@ -47,6 +48,9 @@ export default function RootLayout() {
 
     // Start Guardian monitoring in the background
     startGuardian();
+
+    // Log the security handshake status to vault_audit_log (non-blocking)
+    logSecurityHandshake();
 
     // Initialize vault session AppState tracking (5-min background timeout)
     const cleanupVault = initVaultAppStateTracking();

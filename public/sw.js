@@ -16,7 +16,7 @@
  *  when connectivity is restored.
  */
 
-const CACHE_VERSION  = 'v5';
+const CACHE_VERSION  = 'v6';
 const SHELL_CACHE    = `metroride-shell-${CACHE_VERSION}`;
 const ASSETS_CACHE   = `metroride-assets-${CACHE_VERSION}`;
 const DATA_CACHE     = `metroride-data-${CACHE_VERSION}`;
@@ -110,7 +110,7 @@ self.addEventListener('install', (event) => {
       //    planner, MetroAI, diagnostics, etc.) — partial failures are tolerated.
       caches.open(SHELL_CACHE).then((cache) =>
         cache.addAll(SHELL_PRECACHE).catch((err) => {
-          console.warn('[MetroRide SW v5] Shell pre-cache partial failure:', err);
+          console.warn('[MetroRide SW v6] Shell pre-cache partial failure:', err);
         }),
       ),
       // 2. Pre-cache essential transit data: 2026 fare tables (LRT-1 including
@@ -119,13 +119,13 @@ self.addEventListener('install', (event) => {
       //    detects metroride-data-* immediately after installation.
       caches.open(DATA_CACHE).then((cache) =>
         cache.addAll(DATA_PRECACHE).catch((err) => {
-          console.warn('[MetroRide SW v5] Transit data pre-cache partial failure (will retry on fetch):', err);
+          console.warn('[MetroRide SW v6] Transit data pre-cache partial failure (will retry on fetch):', err);
         }),
       ),
     ]).then(() => {
       console.log(
-        '[MetroRide SW v5] Installed — Immortal PWA active · 2026 fare tables pre-cached · ' +
-        'LRT-1 Cavite Extension (25 stations) ready · AI offline mode ready',
+        '[MetroRide SW v6] Installed — Immortal PWA active · 2026 fare tables + DOTr Subsidy pre-cached · ' +
+        'LRT-1 Cavite Extension (25 stations) ready · MRT-3/LRT-2 50% subsidy ready · AI offline mode ready',
       );
       return self.skipWaiting();
     }),
@@ -144,7 +144,7 @@ self.addEventListener('activate', (event) => {
           names
             .filter((n) => n.startsWith('metroride-') && !keep.has(n))
             .map((n) => {
-              console.log('[MetroRide SW v5] Evicting stale cache:', n);
+              console.log('[MetroRide SW v6] Evicting stale cache:', n);
               return caches.delete(n);
             }),
         ),
