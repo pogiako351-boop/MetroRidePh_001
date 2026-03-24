@@ -24,10 +24,13 @@ import { saveFavoriteRoute } from '@/utils/storage';
 import { RouteResult } from '@/constants/fares';
 import { AdSlot } from '@/components/ui/AdSlot';
 import { GlobalFooter } from '@/components/ui/GlobalFooter';
+import { LiveStatusBar } from '@/components/ui/LiveStatusBar';
+import { useTransitDataSync } from '@/utils/transitDataSync';
 
 export default function RoutePlannerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { isLiveData, lastSync, syncStatus, triggerSync } = useTransitDataSync();
   const [fromStation, setFromStation] = useState<Station | null>(null);
   const [toStation, setToStation] = useState<Station | null>(null);
   const [routes, setRoutes] = useState<RouteResult[]>([]);
@@ -121,6 +124,14 @@ export default function RoutePlannerScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Live Status Indicator */}
+        <LiveStatusBar
+          syncStatus={syncStatus}
+          isLiveData={isLiveData}
+          lastSync={lastSync}
+          onRefresh={triggerSync}
+        />
+
         {/* Station Selection */}
         <Animated.View entering={FadeInDown.duration(400)} style={styles.selectionCard}>
           <StationPicker

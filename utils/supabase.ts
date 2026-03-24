@@ -90,67 +90,22 @@ if (supabaseConfigStatus === 'unconfigured') {
   );
 }
 
-// ── Region-aware custom fetch ─────────────────────────────────────────────
-// Attaches region-preference and production-origin headers on every request so
-// Supabase's CDN edge routes through Singapore (sin-1) for Philippine users.
-// Also re-injects apikey + Authorization on each call to prevent stale browser
-// session tokens from overriding the anon key in production web deployments.
-function createRegionFetch(region: string, anonKey: string) {
-  return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const headers = new Headers(init?.headers);
-    // Singapore (sin-1) CDN edge routing hint — keeps latency low for PH users.
-    headers.set('x-client-region', region);
-    // Explicit auth headers — prevents any cached/stale token from taking over.
-    headers.set('apikey', anonKey);
-    headers.set('Authorization', `Bearer ${anonKey}`);
-    return fetch(input, { ...init, headers });
-  };
-}
+// ── Supabase client creation ──────────────────────────────────────────────
+// Simplified client that avoids custom headers / fetch wrappers that can
+// trigger CORS preflight failures on web/PWA deployments.  The JS client
+// already sends apikey + Authorization automatically — no manual injection
+// is needed.
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      // Force-inject API key and auth headers on every request so stale browser
-      // tokens can never override them when deployed at the production origin
-      // (https://metrorideph.com).
-      global: {
-        headers: {
-          apikey: supabaseAnonKey,
-          Authorization: `Bearer ${supabaseAnonKey}`,
-          // Declare the primary production origin so the Supabase edge can
-          // correctly attribute requests from the Philippine deployment.
-          'x-origin': PRODUCTION_ORIGIN,
-        },
-        // Route REST requests through the Singapore (sin-1) CDN edge node to
-        // keep latency low for Philippine users. The custom fetch also
-        // re-injects auth headers to guard against token override edge-cases.
-        fetch: createRegionFetch(SUPABASE_TARGET_REGION, supabaseAnonKey),
-      },
       auth: {
         storage: AsyncStorage,
-        // Disable auto-refresh and session persistence so the anon key is
-        // always used and is never overridden by cached session tokens.
         autoRefreshToken: false,
         persistSession: false,
         detectSessionInUrl: false,
       },
-      // ── Security Hardening (April 8, 2026 deadline) ─────────────────────
-      // Disable root API access (/rest/v1/) — all queries MUST target tables
-      // directly via .from('table_name'). This prevents OpenAPI schema fetching
-      // and dynamic discovery from leaking table structure via the anon key.
-      //
-      // `schema` is pinned to 'public' so PostgREST never issues a discovery
-      // GET to /rest/v1/ for schema negotiation.  The Accept-Profile header is
-      // always set explicitly, bypassing any auto-detection path.
       db: {
         schema: 'public',
-      },
-      // Explicitly disable the realtime WebSocket from triggering schema
-      // introspection on connect.  eventsPerSecond: 0 keeps the channel idle.
-      // Disable realtime for security — we use polling-based sync instead.
-      realtime: {
-        params: {
-          eventsPerSecond: 0,
-        },
       },
     })
   : null;

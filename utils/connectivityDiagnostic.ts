@@ -10,7 +10,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SUPABASE_TARGET_REGION, supabaseConfigStatus, supabaseUrl, supabaseAnonKey } from './supabase';
+import { SUPABASE_TARGET_REGION, supabaseUrl, supabaseAnonKey } from './supabase';
 
 export interface DiagnosticResult {
   label: string;
@@ -98,7 +98,6 @@ async function checkSupabase(): Promise<DiagnosticResult> {
       headers: {
         apikey:            key,
         Authorization:     `Bearer ${key}`,
-        'x-client-region': SUPABASE_TARGET_REGION,
         Accept:            'application/json',
       },
       signal: controller.signal,

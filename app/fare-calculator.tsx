@@ -40,6 +40,7 @@ import {
   hapticSelection,
 } from '@/utils/haptics';
 import LiveDataBadge from '@/components/ui/LiveDataBadge';
+import { LiveStatusBar } from '@/components/ui/LiveStatusBar';
 import { useTransitDataSync } from '@/utils/transitDataSync';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { AdSlot } from '@/components/ui/AdSlot';
@@ -870,7 +871,7 @@ export default function FareCalculatorScreen() {
   const router = useRouter();
 
   // Background cloud data sync — non-blocking, offline-first
-  const { isLiveData, lastSync } = useTransitDataSync();
+  const { isLiveData, lastSync, syncStatus, triggerSync } = useTransitDataSync();
 
   const [fromStation, setFromStation] = useState<Station | null>(null);
   const [toStation, setToStation] = useState<Station | null>(null);
@@ -1007,6 +1008,14 @@ export default function FareCalculatorScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Live Status Indicator */}
+        <LiveStatusBar
+          syncStatus={syncStatus}
+          isLiveData={isLiveData}
+          lastSync={lastSync}
+          onRefresh={triggerSync}
+        />
+
         {/* Station Selection */}
         <Animated.View entering={FadeInDown.duration(400)} style={styles.selectionCard}>
           <StationPicker

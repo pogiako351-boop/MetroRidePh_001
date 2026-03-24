@@ -6,6 +6,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import rateLimiter from './rateLimiter';
+import { supabaseUrl, supabaseAnonKey } from './supabase';
 
 const GUARDIAN_ALERTS_KEY  = '@metroride_guardian_alerts';
 const GUARDIAN_METRICS_KEY = '@metroride_guardian_metrics';
@@ -121,23 +122,17 @@ async function recordMetric(
 }
 
 async function pingSupabase(): Promise<number | null> {
-  const rawUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const key    = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-  if (!rawUrl || !key) return null;
+  if (!supabaseUrl || !supabaseAnonKey) return null;
 
-  const url = rawUrl.replace(/^http:\/\//i, 'https://').replace(/\/+$/, '');
   const start = Date.now();
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
-    // Query a specific table with minimal payload instead of hitting the root
-    // /rest/v1/ endpoint which triggers OpenAPI schema discovery and 401 errors.
-    const res = await fetch(`${url}/rest/v1/stations?select=id&limit=1`, {
+    const res = await fetch(`${supabaseUrl}/rest/v1/stations?select=id&limit=1`, {
       method: 'GET',
       headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        'x-client-region': 'sin-1',
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${supabaseAnonKey}`,
         Accept: 'application/json',
       },
       signal: controller.signal,

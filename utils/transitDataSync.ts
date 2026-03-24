@@ -38,6 +38,7 @@ export interface CloudFareEntry {
 export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error' | 'offline';
 
 export interface TransitDataSyncState {
+  /** True only when the most recent data was fetched live from Supabase */
   isLiveData: boolean;
   lastSync: Date | null;
   syncStatus: SyncStatus;
@@ -47,9 +48,6 @@ export interface TransitDataSyncState {
   /** Seconds since last successful sync (null if never synced) */
   secondsSinceSync: number | null;
 }
-
-// ── Cache TTL: 15 minutes ──────────────────────────────────────────────────
-const SYNC_TTL_MS = 15 * 60 * 1000;
 
 // ── Real-time polling interval: 5 minutes ─────────────────────────────────
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
@@ -101,22 +99,6 @@ export function useTransitDataSync(): TransitDataSyncState {
   const isMounted = useRef(true);
   const isSyncing = useRef(false);
 
-  // Load cached data on mount (sync-free, instant)
-  useEffect(() => {
-    let cancelled = false;
-    loadCachedData().then(({ stations, fareMatrix, lastSync: cached }) => {
-      if (cancelled) return;
-      if (stations && fareMatrix) {
-        setCloudStations(stations);
-        setCloudFareMatrix(fareMatrix);
-        setLastSync(cached);
-        setIsLiveData(true);
-        setSyncStatus('success');
-      }
-    });
-    return () => { cancelled = true; };
-  }, []);
-
   // ── Live seconds-since-sync ticker ────────────────────────────────────────
   useEffect(() => {
     const ticker = setInterval(() => {
@@ -129,7 +111,7 @@ export function useTransitDataSync(): TransitDataSyncState {
     if (!isSupabaseConfigured || !supabase || isSyncing.current) return;
     isSyncing.current = true;
 
-    if (!isMounted.current) return;
+    if (!isMounted.current) { isSyncing.current = false; return; }
     setSyncStatus('syncing');
 
     try {
@@ -157,10 +139,14 @@ export function useTransitDataSync(): TransitDataSyncState {
           setIsLiveData(true);
           setSyncStatus('success');
         }
+      } else {
+        // Empty response — treat as error (tables should have data)
+        throw new Error('Empty response from Supabase — stations or fare_matrix returned no rows');
       }
     } catch (err) {
       if (isMounted.current) {
         setSyncStatus('error');
+        setIsLiveData(false);
         // Keep existing cached data — offline-first
       }
       // Log sync failure for monitoring
@@ -170,16 +156,23 @@ export function useTransitDataSync(): TransitDataSyncState {
     }
   }, []);
 
-  // Background sync on mount — deferred so UI renders first
+  // Load cached data on mount, then immediately attempt live sync
   useEffect(() => {
     isMounted.current = true;
 
-    loadCachedData().then(({ lastSync: cached }) => {
-      const isStale = !cached || Date.now() - cached.getTime() > SYNC_TTL_MS;
-      if (isStale) {
-        const timer = setTimeout(runSync, 2000);
-        return () => clearTimeout(timer);
+    loadCachedData().then(({ stations, fareMatrix, lastSync: cached }) => {
+      if (!isMounted.current) return;
+      if (stations && fareMatrix) {
+        setCloudStations(stations);
+        setCloudFareMatrix(fareMatrix);
+        setLastSync(cached);
+        // Mark as offline/cached — NOT live until we verify with Supabase
+        setSyncStatus('offline');
+        setIsLiveData(false);
       }
+      // Always attempt live sync on mount — prioritize live data
+      const timer = setTimeout(runSync, 500);
+      return () => clearTimeout(timer);
     });
 
     return () => {
