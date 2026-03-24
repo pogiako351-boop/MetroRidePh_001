@@ -108,21 +108,44 @@ export function useTransitDataSync(): TransitDataSyncState {
   }, [lastSync]);
 
   const runSync = useCallback(async () => {
-    if (!isSupabaseConfigured || !supabase || isSyncing.current) return;
+    if (!isSupabaseConfigured || !supabase) {
+      console.warn(
+        '[TransitSync] Sync skipped — Supabase not configured.',
+        `isConfigured: ${isSupabaseConfigured}, client: ${!!supabase}`,
+      );
+      if (isMounted.current) {
+        setSyncStatus('error');
+        setIsLiveData(false);
+      }
+      return;
+    }
+    if (isSyncing.current) return;
     isSyncing.current = true;
 
     if (!isMounted.current) { isSyncing.current = false; return; }
     setSyncStatus('syncing');
 
     try {
+      const syncStart = Date.now();
+
       // Parallel fetch — non-blocking, low priority
       const [stationsRes, fareRes] = await Promise.all([
         supabase.from('stations').select('*').order('line').order('line_index'),
         supabase.from('fare_matrix').select('*').order('line').order('from_index'),
       ]);
 
+      const syncDuration = Date.now() - syncStart;
+
       if (stationsRes.error || fareRes.error) {
-        throw new Error(stationsRes.error?.message ?? fareRes.error?.message);
+        const errMsg = stationsRes.error?.message ?? fareRes.error?.message ?? 'Unknown';
+        const errCode = stationsRes.error?.code ?? fareRes.error?.code ?? 'N/A';
+        console.error(
+          `[TransitSync] Supabase query error (${syncDuration}ms):`,
+          `Code: ${errCode}`,
+          `Message: ${errMsg}`,
+          stationsRes.error?.hint ? `Hint: ${stationsRes.error.hint}` : '',
+        );
+        throw new Error(errMsg);
       }
 
       const stations = stationsRes.data as CloudStation[];
@@ -139,16 +162,34 @@ export function useTransitDataSync(): TransitDataSyncState {
           setIsLiveData(true);
           setSyncStatus('success');
         }
+        console.log(
+          `[TransitSync] Live sync OK (${syncDuration}ms) — ${stations.length} stations, ${fareMatrix.length} fares`,
+        );
       } else {
         // Empty response — treat as error (tables should have data)
+        console.error(
+          `[TransitSync] Empty response (${syncDuration}ms) — stations: ${stations?.length ?? 0}, fares: ${fareMatrix?.length ?? 0}`,
+        );
         throw new Error('Empty response from Supabase — stations or fare_matrix returned no rows');
       }
-    } catch (err) {
+    } catch (err: unknown) {
       if (isMounted.current) {
         setSyncStatus('error');
         setIsLiveData(false);
         // Keep existing cached data — offline-first
       }
+
+      // Classify the error for browser console
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+        console.error(
+          '[TransitSync] NETWORK ERROR — possible causes: CORS block, DNS failure, no internet, or stale SW cache.',
+          `Origin: ${typeof window !== 'undefined' ? window.location.origin : 'N/A'}`,
+        );
+      } else if (errorMsg.includes('timeout') || errorMsg.includes('AbortError')) {
+        console.error('[TransitSync] TIMEOUT — Supabase did not respond in time.');
+      }
+
       // Log sync failure for monitoring
       void logError('sync_error', err, 'Supabase transit data sync failure');
     } finally {

@@ -128,12 +128,29 @@ async function checkSupabase(): Promise<DiagnosticResult> {
       detail:     `HTTP ${res.status} via ${SUPABASE_TARGET_REGION} (${durationMs}ms)`,
       durationMs,
     };
-  } catch {
+  } catch (err: unknown) {
+    const durationMs = Date.now() - start;
+    const errorName = err instanceof Error ? err.name : 'Unknown';
+    const errorMsg = err instanceof Error ? err.message : String(err);
+
+    let detail = 'Cannot reach Supabase endpoint';
+    if (errorName === 'AbortError') {
+      detail = `Timeout after ${durationMs}ms — endpoint not responding`;
+    } else if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+      detail = `Network error (${durationMs}ms) — CORS block, DNS failure, or no internet`;
+    } else if (errorMsg.includes('CORS')) {
+      detail = `CORS error (${durationMs}ms) — origin ${typeof window !== 'undefined' ? window.location.origin : 'unknown'} may not be allowed`;
+    } else {
+      detail = `${errorName}: ${errorMsg} (${durationMs}ms)`;
+    }
+
+    console.error(`[Pulse] Supabase check failed:`, detail);
+
     return {
       label:      'Supabase Reachability',
       status:     'fail',
-      detail:     'Cannot reach Supabase endpoint',
-      durationMs: Date.now() - start,
+      detail,
+      durationMs,
     };
   }
 }

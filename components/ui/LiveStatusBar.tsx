@@ -72,25 +72,47 @@ export function LiveStatusBar({ syncStatus, isLiveData, lastSync, onRefresh }: L
 
   const isOnline = isLiveData && syncStatus === 'success';
   const isSyncing = syncStatus === 'syncing';
+  const isError = syncStatus === 'error';
+  const isOffline = syncStatus === 'offline';
 
-  // Determine colors and text
-  const dotColor = isOnline ? '#00FFFF' : isSyncing ? '#00FFFF' : '#FFB800';
+  // Determine colors and text based on precise state
+  const dotColor = isOnline
+    ? '#00FFFF'
+    : isSyncing
+      ? '#00FFFF'
+      : isError
+        ? '#FF4444'
+        : '#FFB800';
   const bgColor = isOnline
     ? 'rgba(0,255,255,0.06)'
     : isSyncing
       ? 'rgba(0,255,255,0.04)'
-      : 'rgba(255,184,0,0.06)';
+      : isError
+        ? 'rgba(255,68,68,0.06)'
+        : 'rgba(255,184,0,0.06)';
   const borderColor = isOnline
     ? 'rgba(0,255,255,0.20)'
     : isSyncing
       ? 'rgba(0,255,255,0.12)'
-      : 'rgba(255,184,0,0.15)';
+      : isError
+        ? 'rgba(255,68,68,0.20)'
+        : 'rgba(255,184,0,0.15)';
   const statusText = isSyncing
     ? 'SYNCING...'
     : isOnline
       ? 'LIVE DATA ACTIVE'
-      : 'OFFLINE MODE (CACHED)';
-  const textColor = isOnline ? '#00FFFF' : isSyncing ? '#00FFFF' : '#FFB800';
+      : isError
+        ? 'SYNC ERROR — TAP TO RETRY'
+        : isOffline
+          ? 'OFFLINE MODE (CACHED)'
+          : 'CONNECTING...';
+  const textColor = isOnline
+    ? '#00FFFF'
+    : isSyncing
+      ? '#00FFFF'
+      : isError
+        ? '#FF4444'
+        : '#FFB800';
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor, borderColor }]}>

@@ -787,11 +787,11 @@ export default function AdminScreen() {
 
               <View style={styles.swInfoGrid}>
                 <SwInfoItem label="Offline Ready" value={swVersion !== '—' ? 'YES' : 'NO'} ok={swVersion !== '—'} />
-                <SwInfoItem label="Shell Cache" value={cacheStats['metroride-shell-v4'] ? `${cacheStats['metroride-shell-v4'].entries} entries` : '—'} ok={!!cacheStats['metroride-shell-v4']} />
-                <SwInfoItem label="Assets Cache" value={cacheStats['metroride-assets-v4'] ? `${cacheStats['metroride-assets-v4'].entries} entries` : '—'} ok={!!cacheStats['metroride-assets-v4']} />
-                <SwInfoItem label="Data Cache" value={cacheStats['metroride-data-v4'] ? `${cacheStats['metroride-data-v4'].entries} entries` : '—'} ok={!!cacheStats['metroride-data-v4']} />
-                <SwInfoItem label="Station Cache" value={cacheStats['metroride-station-v4'] ? `${cacheStats['metroride-station-v4'].entries} entries` : '—'} ok={!!cacheStats['metroride-station-v4']} />
-                <SwInfoItem label="Reports Cache" value={cacheStats['metroride-reports-v4'] ? `${cacheStats['metroride-reports-v4'].entries} entries` : '—'} ok={!!cacheStats['metroride-reports-v4']} />
+                <SwInfoItem label="Shell Cache" value={cacheStats['metroride-shell-v7'] ? `${cacheStats['metroride-shell-v7'].entries} entries` : '—'} ok={!!cacheStats['metroride-shell-v7']} />
+                <SwInfoItem label="Assets Cache" value={cacheStats['metroride-assets-v7'] ? `${cacheStats['metroride-assets-v7'].entries} entries` : '—'} ok={!!cacheStats['metroride-assets-v7']} />
+                <SwInfoItem label="Data Cache" value={cacheStats['metroride-data-v7'] ? `${cacheStats['metroride-data-v7'].entries} entries` : '—'} ok={!!cacheStats['metroride-data-v7']} />
+                <SwInfoItem label="Station Cache" value={cacheStats['metroride-station-v7'] ? `${cacheStats['metroride-station-v7'].entries} entries` : '—'} ok={!!cacheStats['metroride-station-v7']} />
+                <SwInfoItem label="Reports Cache" value={cacheStats['metroride-reports-v7'] ? `${cacheStats['metroride-reports-v7'].entries} entries` : '—'} ok={!!cacheStats['metroride-reports-v7']} />
               </View>
             </View>
 
@@ -804,6 +804,45 @@ export default function AdminScreen() {
               <CacheStrategyRow icon="server" label="Supabase / AI API" strategy="Network-First + Stale Fallback" color="#BB44FF" />
               <CacheStrategyRow icon="globe" label="HTML Navigation" strategy="Network-First + Offline Shell" color="#7AEFFF" />
             </View>
+
+            {/* Force cache purge button */}
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: '#FF4444', marginBottom: 12 }]}
+              onPress={async () => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                if (Platform.OS === 'web' && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+                  try {
+                    const reg = await navigator.serviceWorker.getRegistration('/');
+                    const worker = reg?.active;
+                    if (worker) {
+                      const channel = new MessageChannel();
+                      const result = await new Promise<{ success: boolean; currentVersion?: string }>((res) => {
+                        channel.port1.onmessage = (e) => res(e.data);
+                        setTimeout(() => res({ success: false }), 3000);
+                        worker.postMessage({ type: 'FORCE_RELOAD' }, [channel.port2]);
+                      });
+                      if (result.success) {
+                        // Page will reload automatically via FORCE_RELOAD handler
+                      }
+                    } else {
+                      // No active SW — just clear caches manually
+                      if (typeof caches !== 'undefined') {
+                        const names = await caches.keys();
+                        await Promise.all(names.map((n) => caches.delete(n)));
+                      }
+                      window.location.reload();
+                    }
+                  } catch {
+                    window.location.reload();
+                  }
+                }
+              }}
+            >
+              <Ionicons name="trash" size={18} color="#fff" />
+              <Text style={[styles.actionBtnText, { color: '#fff' }]}>
+                Purge All Caches & Reload
+              </Text>
+            </TouchableOpacity>
 
             {/* Offline guarantee */}
             <View style={styles.offlineGuaranteeCard}>

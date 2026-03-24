@@ -36,9 +36,40 @@ export default function RootLayout() {
         .register('/sw.js', { scope: '/' })
         .then((reg) => {
           console.log('[MetroRide] Service Worker registered:', reg.scope);
+
           // Send SKIP_WAITING so any pending worker activates immediately
           if (reg.waiting) {
             reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+
+          // When a new SW is installed, tell it to skip waiting and purge stale caches
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'activated') {
+                  // Purge stale caches from previous versions
+                  const channel = new MessageChannel();
+                  channel.port1.onmessage = (e: MessageEvent) => {
+                    console.log('[MetroRide] Stale caches purged, SW version:', e.data?.currentVersion);
+                  };
+                  newWorker.postMessage({ type: 'PURGE_STALE' }, [channel.port2]);
+                }
+              });
+            }
+          });
+
+          // On initial load, also ask the active SW to purge stale caches
+          if (reg.active) {
+            try {
+              const channel = new MessageChannel();
+              channel.port1.onmessage = (e: MessageEvent) => {
+                console.log('[MetroRide] Active SW cache version:', e.data?.currentVersion);
+              };
+              reg.active.postMessage({ type: 'PURGE_STALE' }, [channel.port2]);
+            } catch {
+              // SW messaging not ready yet
+            }
           }
         })
         .catch((err) => {

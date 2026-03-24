@@ -110,4 +110,28 @@ export const supabase = isSupabaseConfigured
     })
   : null;
 
+// ── Production diagnostic logging ────────────────────────────────────────
+// These logs appear in the browser console on the live site and help
+// diagnose "Database unreachable" reports without needing source access.
+
+if (typeof window !== 'undefined') {
+  const _buildInfo = {
+    supabaseUrl: supabaseUrl ? `${supabaseUrl.slice(0, 30)}...` : 'MISSING',
+    supabaseKeyPrefix: supabaseAnonKey ? supabaseAnonKey.slice(0, 16) + '...' : 'MISSING',
+    configStatus: supabaseConfigStatus,
+    clientCreated: !!supabase,
+    origin: window.location.origin,
+    timestamp: new Date().toISOString(),
+  };
+  console.log('[MetroRide Supabase] Init:', JSON.stringify(_buildInfo, null, 2));
+
+  if (!supabase) {
+    console.error(
+      '[MetroRide Supabase] Client is NULL — all database features disabled.',
+      'If this is the live site, the build may be using stale env vars.',
+      'Verify EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY were set at build time.',
+    );
+  }
+}
+
 export default supabase;

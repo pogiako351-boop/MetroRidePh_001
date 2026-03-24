@@ -122,12 +122,19 @@ async function recordMetric(
 }
 
 async function pingSupabase(): Promise<number | null> {
-  if (!supabaseUrl || !supabaseAnonKey) return null;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error(
+      '[Guardian] Supabase ping skipped — missing credentials.',
+      `URL: ${supabaseUrl ? 'SET' : 'MISSING'}`,
+      `Key: ${supabaseAnonKey ? supabaseAnonKey.slice(0, 12) + '...' : 'MISSING'}`,
+    );
+    return null;
+  }
 
   const start = Date.now();
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
+    const timer = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(`${supabaseUrl}/rest/v1/stations?select=id&limit=1`, {
       method: 'GET',
       headers: {
@@ -139,24 +146,65 @@ async function pingSupabase(): Promise<number | null> {
     });
     clearTimeout(timer);
     const latency = Date.now() - start;
-    return res.ok ? latency : null;
-  } catch {
+
+    if (!res.ok) {
+      console.error(
+        `[Guardian] Supabase ping failed — HTTP ${res.status} ${res.statusText} (${latency}ms)`,
+        `URL: ${supabaseUrl}/rest/v1/stations`,
+        res.status === 401 ? `Key prefix: ${supabaseAnonKey.slice(0, 12)}...` : '',
+      );
+      // Still return latency for non-ok but reachable responses (not truly offline)
+      return null;
+    }
+
+    if (latency > 2000) {
+      console.warn(`[Guardian] Supabase slow response: ${latency}ms`);
+    }
+    return latency;
+  } catch (err: unknown) {
+    const latency = Date.now() - start;
+    const errorName = err instanceof Error ? err.name : 'Unknown';
+    const errorMsg = err instanceof Error ? err.message : String(err);
+
+    // Classify the error for browser console diagnosis
+    if (errorName === 'AbortError') {
+      console.error(`[Guardian] Supabase ping TIMEOUT after ${latency}ms — network too slow or endpoint blocked`);
+    } else if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+      console.error(
+        `[Guardian] Supabase ping NETWORK ERROR (${latency}ms) — possible CORS block, DNS failure, or no internet.`,
+        `Target: ${supabaseUrl}`,
+        `Error: ${errorMsg}`,
+      );
+    } else if (errorMsg.includes('CORS') || errorMsg.includes('cross-origin')) {
+      console.error(
+        `[Guardian] Supabase ping CORS ERROR (${latency}ms) — check Supabase project CORS/allowed-origins config.`,
+        `Origin: ${typeof window !== 'undefined' ? window.location.origin : 'unknown'}`,
+      );
+    } else {
+      console.error(`[Guardian] Supabase ping error: ${errorName} — ${errorMsg} (${latency}ms)`);
+    }
     return null;
   }
 }
 
 async function pingNewellAI(): Promise<number | null> {
   const url = process.env.EXPO_PUBLIC_NEWELL_API_URL;
-  if (!url) return null;
+  if (!url) {
+    console.warn('[Guardian] Newell AI ping skipped — EXPO_PUBLIC_NEWELL_API_URL not set');
+    return null;
+  }
 
   const start = Date.now();
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4000);
+    const timer = setTimeout(() => controller.abort(), 6000);
     await fetch(url, { method: 'HEAD', signal: controller.signal });
     clearTimeout(timer);
     return Date.now() - start;
-  } catch {
+  } catch (err: unknown) {
+    const latency = Date.now() - start;
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Guardian] Newell AI ping failed (${latency}ms): ${errorMsg}`);
     return null;
   }
 }
@@ -275,6 +323,25 @@ async function runHealthCheck(): Promise<void> {
  */
 export function startGuardian(): void {
   if (monitoringInterval) return; // Already running
+
+  // Log startup diagnostics to browser console for live-site debugging
+  console.log(
+    '[Guardian] Starting monitoring system...',
+    `\n  Supabase URL: ${supabaseUrl ? supabaseUrl : 'MISSING'}`,
+    `\n  Supabase Key: ${supabaseAnonKey ? supabaseAnonKey.slice(0, 16) + '...' : 'MISSING'}`,
+    `\n  Newell AI URL: ${process.env.EXPO_PUBLIC_NEWELL_API_URL || 'MISSING'}`,
+    `\n  Platform: ${typeof window !== 'undefined' ? 'web' : 'native'}`,
+    `\n  Origin: ${typeof window !== 'undefined' ? window.location.origin : 'N/A'}`,
+  );
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error(
+      '[Guardian] CRITICAL: Supabase credentials not available at runtime!',
+      'This means EXPO_PUBLIC_SUPABASE_URL and/or EXPO_PUBLIC_SUPABASE_ANON_KEY',
+      'were not inlined during the build. The production web bundle may be stale.',
+    );
+  }
+
   runHealthCheck(); // Immediate first check
   monitoringInterval = setInterval(runHealthCheck, 60_000);
 }
