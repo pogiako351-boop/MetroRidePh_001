@@ -22,6 +22,8 @@ import { RouteVisual } from '@/components/ui/RouteVisual';
 import { findRoutes } from '@/utils/routePlanner';
 import { saveFavoriteRoute } from '@/utils/storage';
 import { RouteResult } from '@/constants/fares';
+import { AdSlot } from '@/components/ui/AdSlot';
+import { GlobalFooter } from '@/components/ui/GlobalFooter';
 
 export default function RoutePlannerScreen() {
   const insets = useSafeAreaInsets();
@@ -298,6 +300,10 @@ export default function RoutePlannerScreen() {
           </Animated.View>
         )}
 
+        {/* Fixed Anchor Ad at the bottom of RouteSearch */}
+        <AdSlot type="anchor" height={90} />
+
+        <GlobalFooter />
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>

@@ -15,13 +15,13 @@ import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GlobalFooter } from '@/components/ui/GlobalFooter';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '3.0.0';
 const BUILD_DATE = '2026';
 const DATA_VERSION = '2026 Official Rail Fare Matrix';
 const APP_TAGLINE = 'Elite Rail-Only Transit Engine for Metro Manila';
-const PLAY_STORE_DESC =
-  'Precision fare calculations, route planning, and AI-powered commuter assistance exclusively for LRT-1, LRT-2, and MRT-3.';
+
 
 interface InfoRow {
   icon: keyof typeof Ionicons.glyphMap;
@@ -209,17 +209,71 @@ export default function AboutScreen() {
           </View>
         </View>
 
-        {/* Description */}
+        {/* ── MISSION ── */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>About MetroRide PH</Text>
+          <View style={styles.eatSectionHeader}>
+            <View style={[styles.eatBadge, { backgroundColor: 'rgba(0,255,255,0.08)', borderColor: 'rgba(0,255,255,0.25)' }]}>
+              <Ionicons name="flag" size={12} color="#00FFFF" />
+              <Text style={[styles.eatBadgeText, { color: '#00FFFF' }]}>MISSION</Text>
+            </View>
+          </View>
+          <Text style={styles.cardTitle}>Our Mission: Empowering Manila Commuters</Text>
           <Text style={styles.bodyText}>
-            {PLAY_STORE_DESC}
+            {"MetroRide PH was built with a singular purpose: to serve as the definitive transit utility for the millions of daily commuters who rely on Metro Manila's urban rail network. Every day, over 1.2 million Filipinos navigate the MRT-3 (Metro Rail Transit Line 3, running along EDSA from North Avenue to Taft Avenue), LRT-1 (Light Rail Transit Line 1, spanning Roosevelt to Baclaran along Rizal/Taft Avenues), and LRT-2 (Light Rail Transit Line 2, connecting Recto to Antipolo through the eastern corridor). These three rail lines form the backbone of urban mobility in the National Capital Region."}
           </Text>
           <Text style={[styles.bodyText, { marginTop: 10 }]}>
-            {"MetroRide PH is a high-precision, rail-only transit companion dedicated exclusively to Metro Manila's three urban rail lines: LRT-1 (Vibrant Yellow Line), MRT-3 (Deep Blue Line), and LRT-2 (Luminous Violet Line). It is NOT a general-purpose transit or navigation app — it is an elite specialist tool for Metro Manila rail commuters."}
+            MetroRide PH exists because commuters deserve accurate, instant, and transparent fare information without needing to queue at ticket counters or decipher confusing fare matrices posted at stations. We believe public transport information should be freely accessible, beautifully presented, and always available — even offline. Our app is not a general navigation tool; it is a precision instrument designed exclusively for rail commuters, delivering station-to-station fare lookups, intelligent multi-line route planning, and real-time crowd intelligence that helps you plan your journey with confidence.
+          </Text>
+        </View>
+
+        {/* ── TECHNICAL DEPTH ── */}
+        <View style={styles.card}>
+          <View style={styles.eatSectionHeader}>
+            <View style={[styles.eatBadge, { backgroundColor: 'rgba(0,255,255,0.08)', borderColor: 'rgba(0,255,255,0.25)' }]}>
+              <Ionicons name="calculator" size={12} color="#00FFFF" />
+              <Text style={[styles.eatBadgeText, { color: '#00FFFF' }]}>TECHNICAL DEPTH</Text>
+            </View>
+          </View>
+          <Text style={styles.cardTitle}>2026 Fare Adjustment Logic & Government Subsidy</Text>
+          <Text style={styles.bodyText}>
+            The 2026 fare engine in MetroRide PH implements the latest official fare matrices published by the Light Rail Transit Authority (LRTA) and Metro Rail Transit Corporation (MRTC). Each rail line has its own distinct fare structure: LRT-1 operates on a distance-based matrix with Beep Card fares ranging from P16 to P52 and Single Journey Ticket (SJT) fares from P20 to P55; LRT-2 and MRT-3 share a subsidized fare structure under the Department of Transportation (DOTr) directive.
           </Text>
           <Text style={[styles.bodyText, { marginTop: 10 }]}>
-            Fare data is sourced directly from official LRTA and MRTC publications and reflects the 2026 official rail fare matrices. The app operates independently and is not affiliated with any government transit agency.
+            {"The 50% Government Subsidy calculation is a critical feature exclusive to MRT-3 and LRT-2. Under DOTr's continuing fare reduction program (originally implemented in 2023 and extended through 2026), the government absorbs half of the computed distance-based fare for these two lines. MetroRide PH transparently shows the original fare, the subsidy deduction, and the final amount passengers actually pay. For discounted passengers — students, senior citizens, and persons with disabilities (PWDs) — the statutory 20% discount mandated by Philippine law is applied after the subsidy, resulting in significant savings. The app computes all permutations: base fare, subsidy deduction, SJT surcharge (where applicable), and PWD/student/senior discount, presenting a complete fare receipt that matches what passengers see at the ticket gate."}
+          </Text>
+        </View>
+
+        {/* ── TECHNOLOGY ── */}
+        <View style={styles.card}>
+          <View style={styles.eatSectionHeader}>
+            <View style={[styles.eatBadge, { backgroundColor: 'rgba(0,255,255,0.08)', borderColor: 'rgba(0,255,255,0.25)' }]}>
+              <Ionicons name="code-slash" size={12} color="#00FFFF" />
+              <Text style={[styles.eatBadgeText, { color: '#00FFFF' }]}>TECHNOLOGY</Text>
+            </View>
+          </View>
+          <Text style={styles.cardTitle}>Infrastructure & Data Integrity</Text>
+          <Text style={styles.bodyText}>
+            MetroRide PH is engineered for reliability and speed. Our backend is powered by Supabase, hosted in the Singapore (ap-southeast-1) region for low-latency access from the Philippines. Supabase provides PostgreSQL-based database integrity with Row-Level Security (RLS) policies ensuring that community-submitted crowd reports and station alerts maintain data authenticity. All fare matrices are stored as verified datasets with checksums to prevent tampering.
+          </Text>
+          <Text style={[styles.bodyText, { marginTop: 10 }]}>
+            {"For web delivery, MetroRide PH leverages Netlify's global CDN with Philippine-based edge nodes, ensuring sub-second page loads for the Progressive Web App (PWA) version. The offline-first architecture means that all 46 stations across three rail lines, the complete fare matrix, and route planning logic are cached locally — enabling full functionality even in Manila's underground LRT-2 stations where connectivity is limited. The app synchronizes with our cloud infrastructure when connectivity is restored, using a queue-based sync mechanism that prevents data loss."}
+          </Text>
+        </View>
+
+        {/* ── AUTHORSHIP ── */}
+        <View style={styles.card}>
+          <View style={styles.eatSectionHeader}>
+            <View style={[styles.eatBadge, { backgroundColor: 'rgba(0,255,255,0.08)', borderColor: 'rgba(0,255,255,0.25)' }]}>
+              <Ionicons name="person" size={12} color="#00FFFF" />
+              <Text style={[styles.eatBadgeText, { color: '#00FFFF' }]}>AUTHORSHIP</Text>
+            </View>
+          </View>
+          <Text style={styles.cardTitle}>Independent Project for Public Transparency</Text>
+          <Text style={styles.bodyText}>
+            MetroRide PH is an independent, community-driven project created by Filipino developers who are themselves daily rail commuters. This app is NOT affiliated with, endorsed by, or connected to the LRTA, MRTC, DOTr, or any Philippine government agency. All fare data is sourced from publicly available official publications and verified against actual station fare displays.
+          </Text>
+          <Text style={[styles.bodyText, { marginTop: 10 }]}>
+            Our commitment to transparency means that every fare calculation shown in the app can be independently verified against the official fare matrices posted at any LRT-1, LRT-2, or MRT-3 station. We welcome corrections and updates from the commuter community — accuracy is our highest priority because we ride these same trains every day. MetroRide PH is, and will remain, a free utility for the Filipino commuting public.
           </Text>
         </View>
 
@@ -311,6 +365,8 @@ export default function AboutScreen() {
         <Text style={styles.copyright}>
           © {BUILD_DATE} MetroRide PH. All rights reserved.
         </Text>
+
+        <GlobalFooter />
       </ScrollView>
     </View>
   );
@@ -454,6 +510,25 @@ const styles = StyleSheet.create({
   disclaimerText: { flex: 1, fontSize: 11, color: 'rgba(255,255,255,0.3)', lineHeight: 16 },
 
   copyright: { fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center', marginBottom: 8 },
+
+  eatSectionHeader: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  eatBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  eatBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
 
   valueRow: {
     flexDirection: 'row',

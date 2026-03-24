@@ -42,6 +42,8 @@ import {
 import LiveDataBadge from '@/components/ui/LiveDataBadge';
 import { useTransitDataSync } from '@/utils/transitDataSync';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { AdSlot } from '@/components/ui/AdSlot';
+import { GlobalFooter } from '@/components/ui/GlobalFooter';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -1257,6 +1259,9 @@ export default function FareCalculatorScreen() {
               <Text style={styles.routeCardTitle}>Step-by-Step Route</Text>
               <RouteVisual route={selectedRoute} showStops />
             </Card>
+
+            {/* Responsive Display Ad — shown after fare results */}
+            <AdSlot type="display" height={250} />
           </Animated.View>
         )}
 
@@ -1269,6 +1274,7 @@ export default function FareCalculatorScreen() {
           </Animated.View>
         )}
 
+        <GlobalFooter />
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>

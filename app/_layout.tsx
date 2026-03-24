@@ -167,6 +167,14 @@ export default function RootLayout() {
             name="admin"
             options={{ headerShown: false, animation: 'slide_from_right' }}
           />
+          <Stack.Screen
+            name="privacy"
+            options={{ headerShown: false, animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="contact"
+            options={{ headerShown: false, animation: 'slide_from_right' }}
+          />
         </Stack>
 
         {!hasOnboarded && <Redirect href="/onboarding" />}

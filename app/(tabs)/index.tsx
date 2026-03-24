@@ -40,6 +40,7 @@ import { useTransitDataSync } from '@/utils/transitDataSync';
 import LiveDataBadge from '@/components/ui/LiveDataBadge';
 import { Skeleton, StationCardSkeleton } from '@/components/ui/Skeleton';
 import PulseStatusLED from '@/components/ui/PulseStatusLED';
+import { GlobalFooter } from '@/components/ui/GlobalFooter';
 
 const QUICK_ACTIONS = [
   { id: 'ai', title: 'MetroAI\nAssistant', icon: 'chatbubbles-outline' as const, color: Colors.electricCyan, route: '/metro-ai' },
@@ -820,6 +821,7 @@ export default function DashboardScreen() {
           )}
         </Animated.View>
 
+        <GlobalFooter />
         <View style={{ height: 120 }} />
       </ScrollView>
 
