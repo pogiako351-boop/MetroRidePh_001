@@ -84,7 +84,7 @@ export default function LiveDataBadge({ visible = true, lastSync, compact = fals
             <View style={[styles.dotCore, { backgroundColor: dotColor }]} />
           </View>
           <Text style={[styles.label, compact && styles.labelCompact, { color: dotColor }]}>
-            {supabaseMode ? 'Verified via Supabase' : 'Live Data'}
+            {supabaseMode ? 'Verified via Supabase' : 'Live Data Active'}
           </Text>
           {!compact && lastSync && (
             <Text style={[styles.sub, { color: dotColor + 'AA' }]}>Synced {formatSync(lastSync)}</Text>

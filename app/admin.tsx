@@ -338,23 +338,22 @@ export default function AdminScreen() {
         }
       }
 
-      // Step 4: Force fresh Supabase connectivity test with cache-busting
+      // Step 4: Force fresh Supabase connectivity test (CORS-safe headers only)
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 10000);
-        const testUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/rest/v1/stations?select=id&limit=1&_bust=${Date.now()}`;
+        const testUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/rest/v1/stations?select=id&limit=1`;
+        // IMPORTANT: Only send CORS-safelisted headers (apikey, Authorization, Accept).
+        // Cache-Control and Pragma trigger CORS preflight which fails on production.
         const res = await fetch(testUrl, {
           method: 'GET',
           headers: {
             apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
             Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || ''}`,
             Accept: 'application/json',
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            Pragma: 'no-cache',
           },
-          cache: 'no-store',
           signal: controller.signal,
-        } as RequestInit);
+        });
         clearTimeout(timer);
 
         if (res.ok) {

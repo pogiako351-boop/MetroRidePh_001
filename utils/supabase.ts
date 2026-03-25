@@ -1,25 +1,17 @@
 import 'react-native-url-polyfill/auto';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ── Environment variable sanitiser ───────────────────────────────────────
-// Strips surrounding single-quotes, double-quotes, or backticks that can be
-// accidentally introduced by shell quoting or certain CI/CD secret managers,
-// then trims any leading/trailing whitespace (including newline characters).
-// This is the primary guard against HTTP 401s caused by a malformed API key.
 function cleanEnvVar(value: string | undefined): string {
   if (!value) return '';
   return value
-    .replace(/^['"`]|['"`]$/g, '')  // remove wrapping quote/backtick characters
-    .replace(/[\r\n]/g, '')          // strip any embedded line-break characters
-    .trim();                          // remove leading / trailing whitespace
+    .replace(/^['"`]|['"`]$/g, '')
+    .replace(/[\r\n]/g, '')
+    .trim();
 }
 
 // ── Prioritized environment variable resolution ───────────────────────────
-// Priority: EXPO_PUBLIC_* → NEXT_PUBLIC_* → bare SUPABASE_*
-// Expo/React Native bundles only inline EXPO_PUBLIC_* at build time, so that
-// prefix is checked first to ensure the correct production secret is read on
-// the live site before falling back to Next.js and plain Node variants.
 const rawSupabaseUrl = cleanEnvVar(
   process.env.EXPO_PUBLIC_SUPABASE_URL ||
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -27,9 +19,6 @@ const rawSupabaseUrl = cleanEnvVar(
 );
 
 // ── https:// enforcement + trailing-slash normalisation ───────────────────
-// Supabase requires TLS for all API calls. Strip any accidental http:// prefix
-// and re-attach https://. Also remove trailing slashes so that path segments
-// like /rest/v1/ are always constructed with a single slash separator.
 export const supabaseUrl = rawSupabaseUrl
   ? rawSupabaseUrl
       .replace(/^http:\/\//i, 'https://')
@@ -43,9 +32,6 @@ export const supabaseAnonKey = cleanEnvVar(
 );
 
 // ── Explicit credential validation ───────────────────────────────────────
-// Each field is checked independently so partial-configuration ('missing-config')
-// is clearly distinguished from a fully-unconfigured state.  This prevents a
-// generic HTTP 401 from masking a real misconfiguration at boot time.
 export type SupabaseConfigStatus = 'configured' | 'missing-config' | 'unconfigured';
 
 function resolveConfigStatus(url: string, key: string): SupabaseConfigStatus {
@@ -59,44 +45,49 @@ export const supabaseConfigStatus: SupabaseConfigStatus = resolveConfigStatus(
   supabaseAnonKey,
 );
 
-// Convenience boolean kept for backwards-compatibility with existing consumers.
 export const isSupabaseConfigured = supabaseConfigStatus === 'configured';
 
-// Target region for low-latency access from the Philippines.
-// Supabase's Cloudflare edge network automatically routes REST API traffic
-// through the nearest PoP — for Philippine users this is Singapore (sin-1).
-// This constant is used by the Pulse diagnostic to surface the configured
-// routing target and verify the endpoint resolves through that region.
 export const SUPABASE_TARGET_REGION = 'sin-1';
 
-// Primary production origin for the Philippine market deployment.
-// Included in every request so the Supabase edge can correctly attribute
-// and validate traffic originating from the production web host.
+// Production origin — used by diagnostics display only.
 export const PRODUCTION_ORIGIN = 'https://metrorideph.com';
 
-// Safety guard: report the precise config issue at init time so the root cause
-// surfaces immediately in logs rather than manifesting as a cryptic 401 later.
+// ── Production env hardening — verify env vars at boot ──────────────────
+// Safe status log: prints "configured" or "MISSING" — never leaks secrets.
+console.log(
+  `[MetroRide ENV] EXPO_PUBLIC_SUPABASE_URL: ${supabaseUrl ? 'configured' : 'MISSING'}`,
+);
+console.log(
+  `[MetroRide ENV] EXPO_PUBLIC_SUPABASE_ANON_KEY: ${supabaseAnonKey ? 'configured' : 'MISSING'}`,
+);
+console.log(
+  `[MetroRide ENV] EXPO_PUBLIC_NEWELL_API_URL: ${process.env.EXPO_PUBLIC_NEWELL_API_URL ? 'configured' : 'MISSING'}`,
+);
+console.log(
+  `[MetroRide ENV] EXPO_PUBLIC_PROJECT_ID: ${process.env.EXPO_PUBLIC_PROJECT_ID ? 'configured' : 'MISSING'}`,
+);
+console.log(
+  `[MetroRide ENV] Overall config status: ${supabaseConfigStatus}`,
+);
+
 if (supabaseConfigStatus === 'unconfigured') {
   console.error(
     '[CRITICAL] Supabase environment variables are missing. ' +
-      'Set SUPABASE_URL / NEXT_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_URL ' +
-      'and the corresponding ANON_KEY variant. All database features will be unavailable.',
+      'Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY. ' +
+      'All database features will be unavailable.',
   );
 } else if (supabaseConfigStatus === 'missing-config') {
   console.error(
-    '[CRITICAL] Supabase is partially configured — Missing Config. ' +
-      'One of SUPABASE_URL or SUPABASE_ANON_KEY resolved to an empty value. ' +
-      'Verify all three prefix variants (SUPABASE_*, NEXT_PUBLIC_*, EXPO_PUBLIC_*).',
+    '[CRITICAL] Supabase is partially configured — one of URL or ANON_KEY is empty.',
   );
 }
 
 // ── Supabase client creation ──────────────────────────────────────────────
-// Simplified client that avoids custom headers / fetch wrappers that can
-// trigger CORS preflight failures on web/PWA deployments.  The JS client
-// already sends apikey + Authorization automatically — no manual injection
-// is needed.
+// CORS-safe: NO custom headers, NO custom fetch wrappers, NO global headers.
+// The @supabase/supabase-js client sends only `apikey` and `Authorization`
+// headers which are CORS-safelisted and do NOT trigger preflight requests.
 
-export const supabase = isSupabaseConfigured
+export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         storage: AsyncStorage,
@@ -107,13 +98,54 @@ export const supabase = isSupabaseConfigured
       db: {
         schema: 'public',
       },
+      // IMPORTANT: No `global.headers` or `global.fetch` overrides.
+      // Adding custom headers here triggers CORS preflight on web.
     })
   : null;
 
-// ── Production diagnostic logging ────────────────────────────────────────
-// These logs appear in the browser console on the live site and help
-// diagnose "Database unreachable" reports without needing source access.
+// ── Direct REST fetch — bypasses Supabase JS client ─────────────────────
+// Used as a fallback when the JS client fails (e.g. due to SW interference).
+// Only sends CORS-safe headers: apikey + Authorization + Accept.
+export async function directSupabaseFetch<T>(
+  table: string,
+  query: string = '*',
+  orderBy?: string,
+): Promise<{ data: T[] | null; error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { data: null, error: 'Supabase not configured' };
+  }
 
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+
+    let url = `${supabaseUrl}/rest/v1/${table}?select=${encodeURIComponent(query)}`;
+    if (orderBy) url += `&order=${encodeURIComponent(orderBy)}`;
+
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${supabaseAnonKey}`,
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      return { data: null, error: `HTTP ${res.status}` };
+    }
+
+    const data = (await res.json()) as T[];
+    return { data, error: null };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { data: null, error: msg };
+  }
+}
+
+// ── Production diagnostic logging ────────────────────────────────────────
 if (typeof window !== 'undefined') {
   const _buildInfo = {
     supabaseUrl: supabaseUrl ? `${supabaseUrl.slice(0, 30)}...` : 'MISSING',

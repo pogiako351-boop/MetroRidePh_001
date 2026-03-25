@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured, directSupabaseFetch } from './supabase';
 import { logError } from './errorLogger';
 
 // ── AsyncStorage Keys ──────────────────────────────────────────────────────
@@ -88,6 +88,59 @@ async function persistSyncedData(
   ]);
 }
 
+// ── Fetch via Supabase JS Client ─────────────────────────────────────────
+async function fetchViaClient(): Promise<{
+  stations: CloudStation[];
+  fareMatrix: CloudFareEntry[];
+} | null> {
+  if (!supabase) return null;
+
+  const [stationsRes, fareRes] = await Promise.all([
+    supabase.from('stations').select('*').order('line').order('line_index'),
+    supabase.from('fare_matrix').select('*').order('line').order('from_index'),
+  ]);
+
+  if (stationsRes.error || fareRes.error) {
+    const errMsg = stationsRes.error?.message ?? fareRes.error?.message ?? 'Unknown';
+    throw new Error(`Supabase client error: ${errMsg}`);
+  }
+
+  const stations = stationsRes.data as CloudStation[];
+  const fareMatrix = fareRes.data as CloudFareEntry[];
+
+  if (!stations?.length || !fareMatrix?.length) {
+    throw new Error(`Empty response: stations=${stations?.length ?? 0}, fares=${fareMatrix?.length ?? 0}`);
+  }
+
+  return { stations, fareMatrix };
+}
+
+// ── Fetch via Direct REST (fallback) ─────────────────────────────────────
+async function fetchViaDirect(): Promise<{
+  stations: CloudStation[];
+  fareMatrix: CloudFareEntry[];
+} | null> {
+  console.log('[TransitSync] Attempting direct REST fallback...');
+
+  const [stationsRes, fareRes] = await Promise.all([
+    directSupabaseFetch<CloudStation>('stations', '*', 'line,line_index'),
+    directSupabaseFetch<CloudFareEntry>('fare_matrix', '*', 'line,from_index'),
+  ]);
+
+  if (stationsRes.error || fareRes.error) {
+    throw new Error(`Direct fetch error: ${stationsRes.error ?? fareRes.error}`);
+  }
+
+  const stations = stationsRes.data;
+  const fareMatrix = fareRes.data;
+
+  if (!stations?.length || !fareMatrix?.length) {
+    throw new Error(`Direct empty response: stations=${stations?.length ?? 0}, fares=${fareMatrix?.length ?? 0}`);
+  }
+
+  return { stations, fareMatrix };
+}
+
 // ── Main Hook ──────────────────────────────────────────────────────────────
 export function useTransitDataSync(): TransitDataSyncState {
   const [isLiveData, setIsLiveData] = useState(false);
@@ -108,11 +161,8 @@ export function useTransitDataSync(): TransitDataSyncState {
   }, [lastSync]);
 
   const runSync = useCallback(async () => {
-    if (!isSupabaseConfigured || !supabase) {
-      console.warn(
-        '[TransitSync] Sync skipped — Supabase not configured.',
-        `isConfigured: ${isSupabaseConfigured}, client: ${!!supabase}`,
-      );
+    if (!isSupabaseConfigured) {
+      console.warn('[TransitSync] Sync skipped — Supabase not configured.');
       if (isMounted.current) {
         setSyncStatus('error');
         setIsLiveData(false);
@@ -125,61 +175,54 @@ export function useTransitDataSync(): TransitDataSyncState {
     if (!isMounted.current) { isSyncing.current = false; return; }
     setSyncStatus('syncing');
 
-    try {
-      const syncStart = Date.now();
+    const syncStart = Date.now();
 
-      // Parallel fetch — non-blocking, low priority
-      const [stationsRes, fareRes] = await Promise.all([
-        supabase.from('stations').select('*').order('line').order('line_index'),
-        supabase.from('fare_matrix').select('*').order('line').order('from_index'),
-      ]);
+    try {
+      // ── AGGRESSIVE LIVE-FIRST: Try Supabase JS client first ──────────
+      let result: { stations: CloudStation[]; fareMatrix: CloudFareEntry[] } | null = null;
+
+      try {
+        result = await fetchViaClient();
+        console.log(`[TransitSync] JS client fetch OK (${Date.now() - syncStart}ms)`);
+      } catch (clientErr: unknown) {
+        const clientMsg = clientErr instanceof Error ? clientErr.message : String(clientErr);
+        console.warn(`[TransitSync] JS client failed (${Date.now() - syncStart}ms): ${clientMsg}`);
+
+        // ── FALLBACK: Direct REST fetch bypasses JS client entirely ────
+        try {
+          result = await fetchViaDirect();
+          console.log(`[TransitSync] Direct REST fallback OK (${Date.now() - syncStart}ms)`);
+        } catch (directErr: unknown) {
+          const directMsg = directErr instanceof Error ? directErr.message : String(directErr);
+          console.error(`[TransitSync] Direct REST also failed: ${directMsg}`);
+          throw directErr;
+        }
+      }
+
+      if (!result) {
+        throw new Error('No data returned from any fetch method');
+      }
 
       const syncDuration = Date.now() - syncStart;
+      const syncTime = new Date();
+      await persistSyncedData(result.stations, result.fareMatrix, syncTime);
 
-      if (stationsRes.error || fareRes.error) {
-        const errMsg = stationsRes.error?.message ?? fareRes.error?.message ?? 'Unknown';
-        const errCode = stationsRes.error?.code ?? fareRes.error?.code ?? 'N/A';
-        console.error(
-          `[TransitSync] Supabase query error (${syncDuration}ms):`,
-          `Code: ${errCode}`,
-          `Message: ${errMsg}`,
-          stationsRes.error?.hint ? `Hint: ${stationsRes.error.hint}` : '',
-        );
-        throw new Error(errMsg);
+      if (isMounted.current) {
+        setCloudStations(result.stations);
+        setCloudFareMatrix(result.fareMatrix);
+        setLastSync(syncTime);
+        setIsLiveData(true);
+        setSyncStatus('success');
       }
-
-      const stations = stationsRes.data as CloudStation[];
-      const fareMatrix = fareRes.data as CloudFareEntry[];
-
-      if (stations?.length && fareMatrix?.length) {
-        const syncTime = new Date();
-        await persistSyncedData(stations, fareMatrix, syncTime);
-
-        if (isMounted.current) {
-          setCloudStations(stations);
-          setCloudFareMatrix(fareMatrix);
-          setLastSync(syncTime);
-          setIsLiveData(true);
-          setSyncStatus('success');
-        }
-        console.log(
-          `[TransitSync] Live sync OK (${syncDuration}ms) — ${stations.length} stations, ${fareMatrix.length} fares`,
-        );
-      } else {
-        // Empty response — treat as error (tables should have data)
-        console.error(
-          `[TransitSync] Empty response (${syncDuration}ms) — stations: ${stations?.length ?? 0}, fares: ${fareMatrix?.length ?? 0}`,
-        );
-        throw new Error('Empty response from Supabase — stations or fare_matrix returned no rows');
-      }
+      console.log(
+        `[TransitSync] LIVE SYNC OK (${syncDuration}ms) — ${result.stations.length} stations, ${result.fareMatrix.length} fares`,
+      );
     } catch (err: unknown) {
       if (isMounted.current) {
         setSyncStatus('error');
         setIsLiveData(false);
-        // Keep existing cached data — offline-first
       }
 
-      // Classify the error for browser console
       const errorMsg = err instanceof Error ? err.message : String(err);
       if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
         console.error(
@@ -190,30 +233,29 @@ export function useTransitDataSync(): TransitDataSyncState {
         console.error('[TransitSync] TIMEOUT — Supabase did not respond in time.');
       }
 
-      // Log sync failure for monitoring
       void logError('sync_error', err, 'Supabase transit data sync failure');
     } finally {
       isSyncing.current = false;
     }
   }, []);
 
-  // Load cached data on mount, then immediately attempt live sync
+  // ── AGGRESSIVE LIVE-FIRST: Attempt live fetch IMMEDIATELY, cache is fallback ──
   useEffect(() => {
     isMounted.current = true;
 
+    // Fire live sync IMMEDIATELY — no delay, no waiting for cache
+    runSync();
+
+    // Also load cached data in parallel as a safety net
+    // If live sync completes first (likely), cache data is overwritten by live data
     loadCachedData().then(({ stations, fareMatrix, lastSync: cached }) => {
       if (!isMounted.current) return;
+      // Only apply cache if we haven't already gotten live data
       if (stations && fareMatrix) {
-        setCloudStations(stations);
-        setCloudFareMatrix(fareMatrix);
-        setLastSync(cached);
-        // Mark as offline/cached — NOT live until we verify with Supabase
-        setSyncStatus('offline');
-        setIsLiveData(false);
+        setCloudStations((prev) => prev ?? stations);
+        setCloudFareMatrix((prev) => prev ?? fareMatrix);
+        setLastSync((prev) => prev ?? cached);
       }
-      // Always attempt live sync on mount — prioritize live data
-      const timer = setTimeout(runSync, 500);
-      return () => clearTimeout(timer);
     });
 
     return () => {
