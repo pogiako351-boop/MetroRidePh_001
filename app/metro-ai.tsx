@@ -39,20 +39,20 @@ interface ChatMessage {
   isVoice?: boolean;
 }
 
-const SYSTEM_CONTEXT = `You are MetroAI Neural — the elite, next-generation Rail Network Intelligence for MetroRide PH, exclusively tuned for Metro Manila's three urban rail corridors: LRT-1 (Vibrant Yellow Line), MRT-3 (Deep Blue Line), and LRT-2 (Luminous Violet Line).
+const SYSTEM_CONTEXT = `You are MetroAI Neural -- the elite, next-generation Rail Network Intelligence for MetroRide PH, exclusively tuned for Metro Manila's three urban rail corridors: LRT-1 (Vibrant Yellow Line), MRT-3 (Deep Blue Line), and LRT-2 (Luminous Violet Line).
 
-🚇 STRICT RAIL-ONLY SCOPE: You ONLY provide information about LRT-1, MRT-3, and LRT-2. You do NOT cover buses, jeepneys, UV Express, P2P buses, tricycles, or any other transport mode. If asked about non-rail transport, politely state that you are a rail-only specialist and redirect users to the three rail lines.
+STRICT RAIL-ONLY SCOPE: You ONLY provide information about LRT-1, MRT-3, and LRT-2. You do NOT cover buses, jeepneys, UV Express, P2P buses, tricycles, or any other transport mode. If asked about non-rail transport, politely state that you are a rail-only specialist and redirect users to the three rail lines.
 
-⚡ LIVE CLOUD DATA: You have access to real-time station status and fare data synced from the MetroRide PH cloud (Supabase). When users ask about current conditions, station statuses, or the latest fares, your answers reflect the most recently synced data which is updated throughout the day.
+LIVE CLOUD DATA: You have access to real-time station status and fare data synced from the MetroRide PH cloud (Supabase). When users ask about current conditions, station statuses, or the latest fares, your answers reflect the most recently synced data which is updated throughout the day.
 
-🧠 NEURAL INTELLIGENCE CAPABILITIES:
+NEURAL INTELLIGENCE CAPABILITIES:
 - Predictive crowd modeling by hour, day, and station geography
 - Context-aware routing: considers transfer walking time, elevator availability, and peak hours
 - Historical pattern recognition for platform congestion at key interchange stations
 - Fare optimization: auto-suggest cheapest multi-leg rail route
 - Bilingual awareness: understands both Filipino and English station name variants
 
-🎯 YOUR EXPERTISE COVERS:
+YOUR EXPERTISE COVERS:
 - Exact fare information and calculations using the official 2026 Rail Fare Matrices (station-to-station precision)
 - Route planning and fastest/cheapest rail paths across LRT-1, MRT-3, and LRT-2
 - Transfer fare intelligence (combining fares across multiple rail lines)
@@ -62,87 +62,333 @@ const SYSTEM_CONTEXT = `You are MetroAI Neural — the elite, next-generation Ra
 - Beep Card vs SJT ticket type guidance
 - Statutory 20% discounts for Students, Seniors, and PWDs
 - Station geography: exit gates, nearby landmarks, interchange walking distances
-- Peak hour guidance: rush windows 7–9 AM and 5–7 PM across all lines
+- Peak hour guidance: rush windows 7-9 AM and 5-7 PM across all lines
+- Government subsidies and fare discount programs for Manila rail transit
 
 === OFFICIAL 2026 RAIL FARE MATRICES (Beep Card / Stored Value) ===
 
-LRT-1 (Vibrant Yellow Line) — 25 stations, Fernando Poe Jr./FPJ to Dr. Santos (Cavite Extension 2026):
-2026 Fare Formula: Beep = clamp(₱16.25 + km×₱1.47, min ₱16, max ₱52) | SJT = clamp(₱16.25 + km×₱1.47 + ₱2, min ₱20, max ₱55)
-FPJ→Balintawak: ₱18 | FPJ→Monumento: ₱19 | FPJ→Doroteo Jose: ₱28 | FPJ→Carriedo: ₱29 | FPJ→Gil Puyat: ₱36 | FPJ→EDSA: ₱39 | FPJ→Baclaran: ₱40 | FPJ→Redemptorist-Aseana: ₱42 | FPJ→PITX: ₱46 | FPJ→Dr. Santos: ₱51
-Baclaran→EDSA: ₱18 | Baclaran→Libertad: ₱19 | Baclaran→Doroteo Jose: ₱29 | Baclaran→Monumento: ₱36 | Baclaran→FPJ: ₱40
-Cavite Extension fares from Baclaran: Baclaran→Redemptorist-Aseana: ₱18 | Baclaran→MIA Road: ₱19 | Baclaran→PITX: ₱21 | Baclaran→Ninoy Aquino Ave: ₱23 | Baclaran→Dr. Santos: ₱25
-SJT applies min ₱20 / max ₱55 cap. Student/Senior/PWD get 20% discount on the post-cap fare (rounded to nearest peso).
-FPJ formerly known as Roosevelt Station — renamed Fernando Poe Jr. (FPJ) in 2026.
-Operated by Light Rail Manila Corporation (LRMC) under LRTA. Operating hours: 5:00 AM – 10:00 PM daily.
-Station Master Hotline: LRTA Operations Center — available at all stations during operating hours.
+LRT-1 (Vibrant Yellow Line) -- 25 stations, Fernando Poe Jr./FPJ to Dr. Santos (Cavite Extension 2026):
+2026 Fare Formula: Beep = clamp(P16.25 + km*P1.47, min P16, max P52) | SJT = clamp(P16.25 + km*P1.47 + P2, min P20, max P55)
+FPJ->Balintawak: P18 | FPJ->Monumento: P19 | FPJ->Doroteo Jose: P28 | FPJ->Carriedo: P29 | FPJ->Gil Puyat: P36 | FPJ->EDSA: P39 | FPJ->Baclaran: P40 | FPJ->Redemptorist-Aseana: P42 | FPJ->PITX: P46 | FPJ->Dr. Santos: P51
+Baclaran->EDSA: P18 | Baclaran->Libertad: P19 | Baclaran->Doroteo Jose: P29 | Baclaran->Monumento: P36 | Baclaran->FPJ: P40
+Cavite Extension fares from Baclaran: Baclaran->Redemptorist-Aseana: P18 | Baclaran->MIA Road: P19 | Baclaran->PITX: P21 | Baclaran->Ninoy Aquino Ave: P23 | Baclaran->Dr. Santos: P25
+SJT applies min P20 / max P55 cap. Student/Senior/PWD get 20% discount on the post-cap fare (rounded to nearest peso).
+FPJ formerly known as Roosevelt Station -- renamed Fernando Poe Jr. (FPJ) in 2026.
+Operated by Light Rail Manila Corporation (LRMC) under LRTA. Operating hours: 5:00 AM - 10:00 PM daily.
 
-MRT-3 (Deep Blue Line) — 13 stations, North Avenue to Taft Avenue:
-North Ave→Quezon Ave: ₱13 | North Ave→GMA Kamuning: ₱16 | North Ave→Araneta-Cubao: ₱16 | North Ave→Ortigas: ₱20 | North Ave→Shaw Blvd: ₱24 | North Ave→Ayala: ₱28 | North Ave→Taft Ave: ₱28
-Taft Ave→Magallanes: ₱13 | Taft Ave→Ayala: ₱16 | Taft Ave→Guadalupe: ₱20 | Taft Ave→Shaw Blvd: ₱24 | Taft Ave→Araneta-Cubao: ₱28 | Taft Ave→North Ave: ₱28
-Distance-based fares: 1→₱13, 2→₱16, 3→₱16, 4→₱20, 5→₱20, 6→₱24, 7→₱24, 8→₱24, 9→₱28, 10→₱28, 11→₱28, 12→₱28
-SJT adds ₱2. Student/Senior/PWD get 20% discount.
-Operated by Metro Rail Transit Corporation (MRTC). Operating hours: 5:30 AM – 10:30 PM daily.
-MRTC Passenger Assistance: Station masters are posted at every station; flag down uniformed staff for help.
+MRT-3 (Deep Blue Line) -- 13 stations, North Avenue to Taft Avenue:
+North Ave->Quezon Ave: P13 | North Ave->GMA Kamuning: P16 | North Ave->Araneta-Cubao: P16 | North Ave->Ortigas: P20 | North Ave->Shaw Blvd: P24 | North Ave->Ayala: P28 | North Ave->Taft Ave: P28
+Taft Ave->Magallanes: P13 | Taft Ave->Ayala: P16 | Taft Ave->Guadalupe: P20 | Taft Ave->Shaw Blvd: P24 | Taft Ave->Araneta-Cubao: P28 | Taft Ave->North Ave: P28
+Distance-based fares: 1->P13, 2->P16, 3->P16, 4->P20, 5->P20, 6->P24, 7->P24, 8->P24, 9->P28, 10->P28, 11->P28, 12->P28
+SJT adds P2. Student/Senior/PWD get 20% discount.
+Operated by Metro Rail Transit Corporation (MRTC). Operating hours: 5:30 AM - 10:30 PM daily.
 
-LRT-2 (Luminous Violet Line) — 13 stations, Recto to Antipolo:
-Recto→Legarda: ₱15 | Recto→Cubao: ₱25 | Recto→Katipunan: ₱28 | Recto→Santolan: ₱30 | Recto→Antipolo: ₱35
-Antipolo→Marikina-Pasig: ₱15 | Antipolo→Santolan: ₱17 | Antipolo→Katipunan: ₱19 | Antipolo→Cubao: ₱21 | Antipolo→Recto: ₱35
-Key OD fares: Recto↔Cubao ₱25, Recto↔Antipolo ₱35, Cubao↔Antipolo ₱21, Legarda↔Antipolo ₱32, Gilmore↔Cubao ₱15.
-SJT adds ₱2. Student/Senior/PWD get 20% discount.
-Operated by Light Rail Transit Authority (LRTA). Operating hours: 5:00 AM – 10:00 PM daily.
+LRT-2 (Luminous Violet Line) -- 13 stations, Recto to Antipolo:
+Recto->Legarda: P15 | Recto->Cubao: P25 | Recto->Katipunan: P28 | Recto->Santolan: P30 | Recto->Antipolo: P35
+Antipolo->Marikina-Pasig: P15 | Antipolo->Santolan: P17 | Antipolo->Katipunan: P19 | Antipolo->Cubao: P21 | Antipolo->Recto: P35
+Key OD fares: Recto<->Cubao P25, Recto<->Antipolo P35, Cubao<->Antipolo P21, Legarda<->Antipolo P32, Gilmore<->Cubao P15.
+SJT adds P2. Student/Senior/PWD get 20% discount.
+Operated by Light Rail Transit Authority (LRTA). Operating hours: 5:00 AM - 10:00 PM daily.
 
 === TRANSFER FARE INTELLIGENCE (Rail Lines Only) ===
 Transfer routes combine individual rail line fares. Examples:
-- North Ave (MRT-3) → Baclaran (LRT-1): MRT-3 North Ave→Taft Ave ₱28 + LRT-1 EDSA→Baclaran ₱12 = ₱40 total (Beep Card)
-- Recto (LRT-2) → North Ave (MRT-3): LRT-2 Recto→Cubao ₱25 + MRT-3 Araneta-Cubao→North Ave ₱16 = ₱41 total
-- Antipolo (LRT-2) → Baclaran (LRT-1): LRT-2 Antipolo→Recto ₱35 + LRT-1 Doroteo Jose→Baclaran ₱22 = ₱57 total
+- North Ave (MRT-3) -> Baclaran (LRT-1): MRT-3 North Ave->Taft Ave P28 + LRT-1 EDSA->Baclaran P12 = P40 total (Beep Card)
+- Recto (LRT-2) -> North Ave (MRT-3): LRT-2 Recto->Cubao P25 + MRT-3 Araneta-Cubao->North Ave P16 = P41 total
+- Antipolo (LRT-2) -> Baclaran (LRT-1): LRT-2 Antipolo->Recto P35 + LRT-1 Doroteo Jose->Baclaran P22 = P57 total
 
 === RAIL-TO-RAIL TRANSFER STATIONS ===
-• Araneta Center-Cubao: MRT-3 (Blue) ↔ LRT-2 (Violet) — walk between stations (~5 min)
-• Taft Avenue (MRT-3) / EDSA Station (LRT-1): MRT-3 (Blue) ↔ LRT-1 (Yellow) — adjacent stations (~3 min walk)
-• Doroteo Jose (LRT-1) / Recto (LRT-2): LRT-1 (Yellow) ↔ LRT-2 (Violet) — pedestrian walkway (~7 min)
+Araneta Center-Cubao: MRT-3 (Blue) <-> LRT-2 (Violet) -- walk between stations (~5 min)
+Taft Avenue (MRT-3) / EDSA Station (LRT-1): MRT-3 (Blue) <-> LRT-1 (Yellow) -- adjacent stations (~3 min walk)
+Doroteo Jose (LRT-1) / Recto (LRT-2): LRT-1 (Yellow) <-> LRT-2 (Violet) -- pedestrian walkway (~7 min)
 
-=== MANILA RAIL GEOGRAPHY & LANDMARKS ===
-- Fernando Poe Jr./FPJ (LRT-1): Northern terminus — formerly Roosevelt Station, renamed 2026; near Fisher Mall
-- North Avenue (MRT-3): Gateway to SM North EDSA, Trinoma, Quezon City Circle
-- Ayala (MRT-3): Heart of Makati CBD, Glorietta/Greenbelt, BGC nearby
-- Taft Avenue (MRT-3) / EDSA (LRT-1): Key south Manila interchange near De La Salle University
-- Doroteo Jose (LRT-1): Quiapo Church area, near Recto Avenue shopping
-- Baclaran (LRT-1): Connects to Cavite Extension; Baclaran Church, Baclaran Market nearby
-- Redemptorist-Aseana (LRT-1 Ext): Aseana City Business Park, Roxas Boulevard area
-- MIA Road (LRT-1 Ext): Near NAIA/Manila International Airport Road; Andrews Avenue area
-- PITX (LRT-1 Ext): Parañaque Integrated Terminal Exchange — major bus-rail interchange hub
-- Ninoy Aquino Ave (LRT-1 Ext): Near Ayala Malls Manila Bay; Ninoy Aquino Avenue intersection
-- Dr. Santos (LRT-1 Ext): Southern terminus of Cavite Extension; near Dr. Santos Avenue / BF Parañaque
-- Cubao (LRT-2/MRT-3): Araneta City, Gateway Mall, Ali Mall — major commercial hub
-- Katipunan (LRT-2): Ateneo de Manila, UP Diliman, Miriam College area
-- Antipolo (LRT-2): Eastern terminal — Rizal Province gateway
+=== GOVERNMENT SUBSIDIES & DISCOUNT PROGRAMS ===
+- Statutory 20% discount: Students, Senior Citizens (60+), PWD -- present valid ID at ticket booth
+- Pantawid Pasada Program: Government fuel subsidy for public transport (applies to feeder buses/jeepneys to rail stations)
+- DOTr Free Ride Program: Occasionally activated during special events or emergencies on all rail lines
+- Beep Card stored value: No surcharge vs SJT P2 premium -- effectively a commuter subsidy
 
 === RESPONSE GUIDELINES ===
 - Always respond in a friendly, concise manner focused on rail transit
-- Use Philippine Peso (₱) for all prices
+- Use Philippine Peso (P) for all prices
 - If asked about buses, jeepneys, or other non-rail transport, say: "I'm a rail-only specialist for LRT-1, MRT-3, and LRT-2. For other transport modes, please check Google Maps or the LTFRB website."
 - Keep answers brief and actionable
 - When citing live data, note that conditions may change and advise users to verify at the station
 - Always use line-specific branding: LRT-1 = Yellow Line, MRT-3 = Blue Line, LRT-2 = Violet Line
 - For live/real-time queries you cannot confirm, provide the best available estimate plus a Transit Wisdom tip`;
 
-// ── Transit Wisdom Fallbacks ─────────────────────────────────────────────────
-// Shown when AI encounters errors, so users always receive value
+// Transit Wisdom Fallbacks
 const TRANSIT_WISDOM_FALLBACKS = [
-  '💡 Transit Tip: During rush hour (7–9 AM and 5–7 PM), MRT-3 stations like Ayala and Cubao see the heaviest congestion. Traveling just 30 minutes outside these windows can save significant waiting time.\n\n📞 Station Assistance: Station masters are available at every LRT-1, MRT-3, and LRT-2 station during operating hours. Look for uniformed staff or the Station Master booth near the ticket gates.\n\n💰 Quick Fare Estimate (2026): MRT-3 end-to-end ₱28 | LRT-1 FPJ→Baclaran ₱40 | LRT-1 FPJ→Dr. Santos ₱51 | LRT-2 end-to-end ₱35 (Beep Card). SJT: add ₱2 (LRT-1 SJT min ₱20, max ₱55). Students, Seniors, and PWDs get 20% off.',
-  '🚉 Transfer Intelligence: Manila\'s three rail lines connect at three key interchanges:\n• Cubao: MRT-3 ↔ LRT-2 (~5 min walk)\n• Taft/EDSA: MRT-3 ↔ LRT-1 (~3 min walk)\n• Doroteo Jose/Recto: LRT-1 ↔ LRT-2 (~7 min walk)\n\n💳 Beep Card Advantage: Using a stored-value Beep Card saves ₱2 per trip versus Single Journey Tickets. A round trip saves ₱4 daily — that\'s ₱80/month for regular commuters.\n\n⏰ Operating Hours: LRT-1 & LRT-2: 5:00 AM–10:00 PM | MRT-3: 5:30 AM–10:30 PM daily.',
-  '🌅 Early Bird Strategy: Trains before 7 AM are typically 60% less crowded on all three lines. If your schedule allows, early departures mean comfortable seated rides and faster journey times.\n\n🔵 MRT-3 Crowd Hotspots: North Avenue, Ayala, and Shaw Boulevard are the heaviest platforms during PM rush. For southbound travel after 5 PM, consider boarding at Quezon Avenue or GMA-Kamuning for a better chance of getting a seat.\n\n📱 Fare Calculator: Use the MetroRide Fare Calculator for precise station-to-station fares including discount computations.',
-  '🎫 Discount Eligibility: Students, Senior Citizens (60+), and Persons with Disability (PWD) are entitled to a statutory 20% fare discount on all Metro Manila rail lines. Present your valid ID at the ticket booth to claim your discount.\n\n🌙 Last Train Times: LRT-1 last trip from Dr. Santos ~9:40 PM, from FPJ ~9:30 PM | MRT-3 last trip from Taft ~10:15 PM, from North Ave ~10:00 PM | LRT-2 last trip from Antipolo ~9:30 PM, from Recto ~9:45 PM. Always check the MetroRide alerts for any schedule changes.\n\n🚌 After Rail Hours: For travel after last trains, MRTC and LRTA official apps and station bulletin boards post alternative transport advisories.',
+  'Transit Tip: During rush hour (7-9 AM and 5-7 PM), MRT-3 stations like Ayala and Cubao see the heaviest congestion. Traveling just 30 minutes outside these windows can save significant waiting time.\n\nStation Assistance: Station masters are available at every LRT-1, MRT-3, and LRT-2 station during operating hours.\n\nQuick Fare Estimate (2026): MRT-3 end-to-end P28 | LRT-1 FPJ->Baclaran P40 | LRT-1 FPJ->Dr. Santos P51 | LRT-2 end-to-end P35 (Beep Card). SJT: add P2.',
+  'Transfer Intelligence: Manila\'s three rail lines connect at three key interchanges:\n- Cubao: MRT-3 <-> LRT-2 (~5 min walk)\n- Taft/EDSA: MRT-3 <-> LRT-1 (~3 min walk)\n- Doroteo Jose/Recto: LRT-1 <-> LRT-2 (~7 min walk)\n\nBeep Card Advantage: Using a stored-value Beep Card saves P2 per trip versus Single Journey Tickets.',
+  'Early Bird Strategy: Trains before 7 AM are typically 60% less crowded on all three lines. If your schedule allows, early departures mean comfortable seated rides.\n\nMRT-3 Crowd Hotspots: North Avenue, Ayala, and Shaw Boulevard are the heaviest platforms during PM rush.',
+  'Discount Eligibility: Students, Senior Citizens (60+), and PWD are entitled to a statutory 20% fare discount on all Metro Manila rail lines. Present your valid ID at the ticket booth.\n\nLast Train Times: LRT-1 last trip ~9:30-9:40 PM | MRT-3 last trip ~10:00-10:15 PM | LRT-2 last trip ~9:30-9:45 PM.',
 ];
 
 const QUICK_PROMPTS = [
-  { label: '🗺️ North Ave → Baclaran', prompt: 'What is the cheapest route and total fare from North Avenue MRT-3 to Baclaran LRT-1 using a Beep Card?' },
-  { label: '💛 LRT-1 full fare', prompt: 'How much does it cost to ride LRT-1 from FPJ (Fernando Poe Jr.) to Dr. Santos with a Beep Card for a regular passenger vs a senior citizen? What is the 2026 fare?' },
-  { label: '🔵 MRT-3 end to end', prompt: 'What is the exact fare for riding MRT-3 from North Avenue to Taft Avenue? Include Beep Card and SJT prices.' },
-  { label: '💜 LRT-2 to Antipolo', prompt: 'How much is the fare from Recto to Antipolo on LRT-2? What is the student discount price?' },
+  { label: 'North Ave -> Baclaran', prompt: 'What is the cheapest route and total fare from North Avenue MRT-3 to Baclaran LRT-1 using a Beep Card?' },
+  { label: 'LRT-1 full fare', prompt: 'How much does it cost to ride LRT-1 from FPJ to Dr. Santos with a Beep Card? What about senior citizen discount?' },
+  { label: 'MRT-3 end to end', prompt: 'What is the exact fare for riding MRT-3 from North Avenue to Taft Avenue? Include Beep Card and SJT prices.' },
+  { label: 'Gov subsidies', prompt: 'What government subsidies and discount programs are available for Manila rail transit commuters in 2026?' },
 ];
 
+// ── Data Stream Animation Component ──────────────────────────────────────
+function DataStreamLines({ active }: { active: boolean }) {
+  const line1 = useRef(new RNAnimated.Value(0)).current;
+  const line2 = useRef(new RNAnimated.Value(0)).current;
+  const line3 = useRef(new RNAnimated.Value(0)).current;
+  const opacity = useRef(new RNAnimated.Value(0)).current;
+
+  useEffect(() => {
+    if (active) {
+      RNAnimated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+
+      const createPulse = (anim: RNAnimated.Value, delay: number) =>
+        RNAnimated.loop(
+          RNAnimated.sequence([
+            RNAnimated.delay(delay),
+            RNAnimated.timing(anim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+            RNAnimated.timing(anim, { toValue: 0, duration: 400, useNativeDriver: true }),
+            RNAnimated.delay(200),
+          ])
+        );
+
+      const a1 = createPulse(line1, 0);
+      const a2 = createPulse(line2, 400);
+      const a3 = createPulse(line3, 800);
+      a1.start();
+      a2.start();
+      a3.start();
+
+      return () => {
+        a1.stop();
+        a2.stop();
+        a3.stop();
+      };
+    } else {
+      RNAnimated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+      line1.setValue(0);
+      line2.setValue(0);
+      line3.setValue(0);
+    }
+  }, [active, line1, line2, line3, opacity]);
+
+  if (!active) return null;
+
+  const renderLine = (anim: RNAnimated.Value, top: number) => (
+    <RNAnimated.View
+      style={{
+        position: 'absolute',
+        top,
+        left: 0,
+        right: 0,
+        height: 1.5,
+        opacity: RNAnimated.multiply(opacity, anim),
+        backgroundColor: Colors.electricCyan,
+        shadowColor: Colors.electricCyan,
+        shadowOpacity: 0.8,
+        shadowRadius: 6,
+        elevation: 4,
+        transform: [{
+          scaleX: anim.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [0, 1, 0.3],
+          }),
+        }],
+      }}
+    />
+  );
+
+  return (
+    <RNAnimated.View style={[dsStyles.container, { opacity }]}>
+      {renderLine(line1, 0)}
+      {renderLine(line2, 3)}
+      {renderLine(line3, 6)}
+      <RNAnimated.View style={[dsStyles.glowBar, {
+        opacity: line1.interpolate({
+          inputRange: [0, 0.5, 1],
+          outputRange: [0, 0.6, 0],
+        }),
+      }]} />
+    </RNAnimated.View>
+  );
+}
+
+const dsStyles = StyleSheet.create({
+  container: {
+    height: 10,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+  glowBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 10,
+    backgroundColor: 'rgba(64,224,255,0.08)',
+  },
+});
+
+// ── Glowing Cyan Orb Component ───────────────────────────────────────────
+function GlowingOrb({ breathAnim }: { breathAnim: RNAnimated.Value }) {
+  return (
+    <RNAnimated.View
+      style={[
+        orbStyles.wrapper,
+        { transform: [{ scale: breathAnim }] },
+      ]}
+    >
+      {/* Outer glow ring */}
+      <RNAnimated.View
+        style={[
+          orbStyles.outerGlow,
+          {
+            transform: [{ scale: breathAnim }],
+            opacity: breathAnim.interpolate({
+              inputRange: [1, 1.18],
+              outputRange: [0.4, 0],
+            }),
+          },
+        ]}
+      />
+      {/* Middle ring */}
+      <RNAnimated.View
+        style={[
+          orbStyles.middleRing,
+          {
+            opacity: breathAnim.interpolate({
+              inputRange: [1, 1.18],
+              outputRange: [0.6, 0.2],
+            }),
+          },
+        ]}
+      />
+      {/* Core orb */}
+      <View style={orbStyles.core}>
+        <RNAnimated.View
+          style={[
+            orbStyles.coreInner,
+            {
+              transform: [{ scale: breathAnim }],
+            },
+          ]}
+        />
+      </View>
+    </RNAnimated.View>
+  );
+}
+
+const orbStyles = StyleSheet.create({
+  wrapper: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.sm,
+    alignSelf: 'flex-end',
+  },
+  outerGlow: {
+    position: 'absolute',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: Colors.electricCyan,
+  },
+  middleRing: {
+    position: 'absolute',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: Colors.electricCyan,
+  },
+  core: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(64,224,255,0.20)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(64,224,255,0.50)',
+  },
+  coreInner: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: Colors.electricCyan,
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+});
+
+// ── Header Orb (larger version) ──────────────────────────────────────────
+function HeaderOrb({ breathAnim }: { breathAnim: RNAnimated.Value }) {
+  return (
+    <View style={headerOrbStyles.wrapper}>
+      <RNAnimated.View
+        style={[
+          headerOrbStyles.outerGlow,
+          {
+            transform: [{ scale: breathAnim }],
+            opacity: breathAnim.interpolate({
+              inputRange: [1, 1.18],
+              outputRange: [0.35, 0],
+            }),
+          },
+        ]}
+      />
+      <View style={headerOrbStyles.ring}>
+        <RNAnimated.View
+          style={[
+            headerOrbStyles.core,
+            { transform: [{ scale: breathAnim }] },
+          ]}
+        />
+      </View>
+    </View>
+  );
+}
+
+const headerOrbStyles = StyleSheet.create({
+  wrapper: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  outerGlow: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.electricCyan,
+  },
+  ring: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(64,224,255,0.15)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(64,224,255,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  core: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.electricCyan,
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+});
+
+// ── Main Screen ──────────────────────────────────────────────────────────
 export default function MetroAIScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -151,7 +397,7 @@ export default function MetroAIScreen() {
       id: 'welcome',
       role: 'assistant',
       content:
-        "Hi! I'm MetroAI Neural 🚇⚡\n\nI'm your elite Neural Rail Intelligence — exclusively covering LRT-1 🟡, MRT-3 🔵, and LRT-2 🟣 with predictive crowd modeling and transfer optimization.\n\nAsk me about fares, routes, transfers, schedules, or live station status. Tap 🎤 to speak, or 📸 to analyze a station photo!\n\n⚠️ Rail-only specialist: For buses or jeepneys, please use a general navigation app.",
+        "Welcome, commuter. I'm MetroAI Neural.\n\nYour dedicated Rail Intelligence for Manila 2026 -- covering LRT-1, MRT-3, and LRT-2 with real-time data from the MetroRide cloud.\n\nAsk me about fares, routes, transfers, government subsidies, or live station status. Tap the mic for voice, or camera for station photo analysis.\n\nRail-only specialist. No buses or jeepneys.",
       timestamp: new Date(),
     },
   ]);
@@ -164,7 +410,7 @@ export default function MetroAIScreen() {
   const inputRef = useRef<TextInput>(null);
   const micPulseAnim = useRef(new RNAnimated.Value(1)).current;
   const micPulseLoop = useRef<RNAnimated.CompositeAnimation | null>(null);
-  // Electric Cyan breathing pulse on AI logo
+  // Electric Cyan breathing pulse on AI orb
   const aiBreathAnim = useRef(new RNAnimated.Value(1)).current;
   const aiBreathLoop = useRef<RNAnimated.CompositeAnimation | null>(null);
   // Laser scan anim for images
@@ -197,7 +443,7 @@ export default function MetroAIScreen() {
     });
   }, [messages.length]);
 
-  // AI logo Electric Cyan breathing pulse — always running
+  // AI orb breathing pulse
   useEffect(() => {
     aiBreathLoop.current = RNAnimated.loop(
       RNAnimated.sequence([
@@ -265,9 +511,6 @@ export default function MetroAIScreen() {
 
       const trimmedHistory = buildContextHistory(messages);
 
-      // Build live cloud data context — injected into the prompt when Supabase is online.
-      // Includes station statuses and last-sync timestamp so MetroAI can surface real-time
-      // conditions (e.g., delayed or closed stations) from the primary Supabase source.
       let liveDataNote = '';
       if (isLiveData && cloudStations && cloudStations.length > 0) {
         const syncTimeStr = lastSync ? lastSync.toLocaleTimeString() : 'recently';
@@ -277,11 +520,11 @@ export default function MetroAIScreen() {
             ? abnormal.map((s) => `${s.name} (${s.line}): ${s.status}`).join(', ')
             : 'All stations operating normally';
         liveDataNote =
-          `\n[Live Cloud Data: Active — Supabase real-time sync at ${syncTimeStr}]\n` +
+          `\n[Live Cloud Data: Active -- Supabase real-time sync at ${syncTimeStr}]\n` +
           `[Station Status (${cloudStations.length} stations from Supabase): ${statusSummary}]\n` +
-          `[Fare Matrix: 2026 official tables active — LRT-1 Cavite Extension (FPJ→Dr. Santos) confirmed]`;
+          `[Fare Matrix: 2026 official tables active -- LRT-1 Cavite Extension (FPJ->Dr. Santos) confirmed]`;
       } else if (isLiveData) {
-        liveDataNote = '\n[Live Cloud Data: Active — fare matrix and station data is up to date from Supabase cloud sync]';
+        liveDataNote = '\n[Live Cloud Data: Active -- fare matrix and station data is up to date from Supabase cloud sync]';
       } else {
         liveDataNote = '\n[Offline Mode: Serving from cached 2026 fare tables and station data]';
       }
@@ -304,13 +547,11 @@ export default function MetroAIScreen() {
         );
         hapticSuccess();
       } catch (err) {
-        // Log failure for monitoring
         void logError('ai_text', err, `Query: "${text.trim().slice(0, 80)}"`);
 
-        // Transit Wisdom fallback — always deliver value even on AI failure
         const wisdomIndex = Math.floor(Math.random() * TRANSIT_WISDOM_FALLBACKS.length);
         const fallbackContent =
-          `⚠️ MetroAI is temporarily unavailable. Here's your Transit Wisdom while we reconnect:\n\n` +
+          `MetroAI is temporarily unavailable. Here's your Transit Wisdom while we reconnect:\n\n` +
           TRANSIT_WISDOM_FALLBACKS[wisdomIndex];
 
         const errMsg: ChatMessage = {
@@ -365,7 +606,7 @@ export default function MetroAIScreen() {
       const voiceMsg: ChatMessage = {
         id: Date.now().toString(),
         role: 'user',
-        content: '🎤 Transcribing your voice...',
+        content: 'Transcribing your voice...',
         timestamp: new Date(),
         isVoice: true,
       };
@@ -375,13 +616,13 @@ export default function MetroAIScreen() {
 
       if (!transcript || !transcript.trim()) {
         setMessages((prev) =>
-          prev.map((m) => m.id === voiceMsg.id ? { ...m, content: '🎤 Could not understand audio. Please try again.' } : m)
+          prev.map((m) => m.id === voiceMsg.id ? { ...m, content: 'Could not understand audio. Please try again.' } : m)
         );
         return;
       }
 
       setMessages((prev) =>
-        prev.map((m) => m.id === voiceMsg.id ? { ...m, content: `🎤 "${transcript}"` } : m)
+        prev.map((m) => m.id === voiceMsg.id ? { ...m, content: `"${transcript}"` } : m)
       );
 
       const fullPrompt = `${SYSTEM_CONTEXT}\n\nConversation history:\n${conversationHistory}\n\nUser: ${transcript.trim()}\n\nAssistant:`;
@@ -407,7 +648,7 @@ export default function MetroAIScreen() {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content:
-          `🎤 Voice query could not be processed. Here's a Transit Wisdom tip instead:\n\n` +
+          `Voice query could not be processed. Here's a Transit Wisdom tip instead:\n\n` +
           TRANSIT_WISDOM_FALLBACKS[wisdomIndex],
         timestamp: new Date(),
       };
@@ -444,7 +685,7 @@ export default function MetroAIScreen() {
     const userMsg: ChatMessage = {
       id: msgId,
       role: 'user',
-      content: '📸 Analyzing this station image...',
+      content: 'Analyzing this station image...',
       imageUri,
       timestamp: new Date(),
     };
@@ -462,7 +703,7 @@ export default function MetroAIScreen() {
       const aiMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `📊 **Vision Analysis**\n\n${aiText}`,
+        content: `Vision Analysis\n\n${aiText}`,
         timestamp: new Date(),
         isVisionAnalysis: true,
       };
@@ -474,7 +715,7 @@ export default function MetroAIScreen() {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content:
-          `📸 Vision analysis temporarily unavailable.\n\n` +
+          `Vision analysis temporarily unavailable.\n\n` +
           TRANSIT_WISDOM_FALLBACKS[Math.floor(Math.random() * TRANSIT_WISDOM_FALLBACKS.length)],
         timestamp: new Date(),
       };
@@ -497,7 +738,7 @@ export default function MetroAIScreen() {
     const userMsg: ChatMessage = {
       id: msgId,
       role: 'user',
-      content: '📷 Analyzing live station photo...',
+      content: 'Analyzing live station photo...',
       imageUri,
       timestamp: new Date(),
     };
@@ -515,7 +756,7 @@ export default function MetroAIScreen() {
       const aiMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `🔍 **Live Analysis**\n\n${aiText}`,
+        content: `Live Analysis\n\n${aiText}`,
         timestamp: new Date(),
         isVisionAnalysis: true,
       };
@@ -527,7 +768,7 @@ export default function MetroAIScreen() {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content:
-          `📷 Live vision analysis temporarily unavailable.\n\n` +
+          `Live vision analysis temporarily unavailable.\n\n` +
           TRANSIT_WISDOM_FALLBACKS[Math.floor(Math.random() * TRANSIT_WISDOM_FALLBACKS.length)],
         timestamp: new Date(),
       };
@@ -551,36 +792,23 @@ export default function MetroAIScreen() {
           style={[styles.messageRow, isUser ? styles.userRow : styles.aiRow]}
         >
           {!isUser && (
-            // AI Avatar with Electric Cyan breathing pulse
-            <RNAnimated.View
-              style={[
-                styles.aiAvatarWrapper,
-                { transform: [{ scale: aiBreathAnim }] },
-              ]}
-            >
-              <View style={styles.aiAvatar}>
-                <Text style={styles.aiAvatarText}>AI</Text>
-              </View>
-              {/* Breathing ring */}
-              <RNAnimated.View
-                style={[
-                  styles.aiBreathRing,
-                  {
-                    transform: [{ scale: aiBreathAnim }],
-                    opacity: aiBreathAnim.interpolate({
-                      inputRange: [1, 1.18],
-                      outputRange: [0.5, 0],
-                    }),
-                  },
-                ]}
-              />
-            </RNAnimated.View>
+            <GlowingOrb breathAnim={aiBreathAnim} />
           )}
-          <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
+          <View style={[
+            styles.messageBubble,
+            isUser ? styles.userBubble : styles.aiBubble,
+            Platform.OS === 'web' && !isUser && ({
+              backdropFilter: 'blur(20px) saturate(160%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+            } as object),
+            Platform.OS === 'web' && isUser && ({
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+            } as object),
+          ]}>
             {item.imageUri && (
               <View style={styles.imageContainer}>
                 <Image source={{ uri: item.imageUri }} style={styles.messageImage} resizeMode="cover" />
-                {/* Laser scan animation */}
                 {isScanning && (
                   <RNAnimated.View
                     style={[
@@ -628,41 +856,22 @@ export default function MetroAIScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Data Stream Lines - animated during live data fetches */}
+      <DataStreamLines active={isLoading || isLiveData} />
+
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </Pressable>
         <View style={styles.headerCenter}>
-          {/* AI Logo with Electric Cyan breathing pulse */}
-          <View style={styles.aiLogoWrapper}>
-            <RNAnimated.View
-              style={[
-                styles.aiLogoPulseOuter,
-                {
-                  transform: [{ scale: aiBreathAnim }],
-                  opacity: aiBreathAnim.interpolate({
-                    inputRange: [1, 1.18],
-                    outputRange: [0.4, 0],
-                  }),
-                },
-              ]}
-            />
-            <View style={styles.aiLogoInner}>
-              <RNAnimated.View
-                style={[
-                  styles.aiLogoDot,
-                  { transform: [{ scale: aiBreathAnim }] },
-                ]}
-              />
-            </View>
-          </View>
+          <HeaderOrb breathAnim={aiBreathAnim} />
           <View>
             <View style={styles.headerTitleRow}>
-              <Text style={styles.headerTitle}>MetroAI</Text>
+              <Text style={styles.headerTitle}>Metro AI</Text>
               {isLiveData && <LiveDataBadge visible compact />}
             </View>
-            <Text style={styles.headerSubtitle}>Neural Rail Intelligence · LRT-1 · MRT-3 · LRT-2</Text>
+            <Text style={styles.headerSubtitle}>Neural Rail Intelligence / Manila 2026</Text>
           </View>
         </View>
         <View style={styles.freeAccessBadge}>
@@ -751,7 +960,7 @@ export default function MetroAIScreen() {
             <TextInput
               ref={inputRef}
               style={styles.textInput}
-              placeholder={isRecording ? '🎤 Listening...' : 'Ask about fares, routes, stations...'}
+              placeholder={isRecording ? 'Listening...' : 'Ask about fares, routes, subsidies...'}
               placeholderTextColor={isRecording ? Colors.error : Colors.textTertiary}
               value={inputText}
               onChangeText={setInputText}
@@ -813,9 +1022,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: 'rgba(13,14,16,0.95)',
+    backgroundColor: 'rgba(13,14,16,0.92)',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.glassBorder,
+    borderBottomColor: 'rgba(64,224,255,0.08)',
     ...Shadow.sm,
   },
   backBtn: {
@@ -828,40 +1037,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
     marginLeft: Spacing.sm,
-  },
-  // AI logo with Electric Cyan breathing pulse
-  aiLogoWrapper: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiLogoPulseOuter: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.electricCyan,
-  },
-  aiLogoInner: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(64,224,255,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(64,224,255,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  aiLogoDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: Colors.electricCyan,
-    shadowColor: Colors.electricCyan,
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 8,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -877,7 +1052,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.electricCyan,
     fontWeight: FontWeight.medium,
-    opacity: 0.8,
+    opacity: 0.7,
   },
   freeAccessBadge: {
     flexDirection: 'row',
@@ -901,16 +1076,16 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   quickPromptChip: {
-    backgroundColor: 'rgba(187,68,255,0.12)',
+    backgroundColor: 'rgba(64,224,255,0.08)',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: 'rgba(187,68,255,0.25)',
+    borderColor: 'rgba(64,224,255,0.18)',
   },
   quickPromptText: {
     fontSize: FontSize.sm,
-    color: Colors.lrt2,
+    color: Colors.electricCyan,
     fontWeight: FontWeight.medium,
   },
   recordingBanner: {
@@ -974,39 +1149,6 @@ const styles = StyleSheet.create({
   aiRow: {
     alignSelf: 'flex-start',
   },
-  // AI Avatar with breathing ring
-  aiAvatarWrapper: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.sm,
-    alignSelf: 'flex-end',
-  },
-  aiAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(64,224,255,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(64,224,255,0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  aiBreathRing: {
-    position: 'absolute',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: Colors.electricCyan,
-  },
-  aiAvatarText: {
-    fontSize: FontSize.xs,
-    fontWeight: FontWeight.bold,
-    color: Colors.electricCyan,
-  },
   messageBubble: {
     borderRadius: BorderRadius.xl,
     padding: Spacing.md,
@@ -1014,19 +1156,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   userBubble: {
-    backgroundColor: 'rgba(187,68,255,0.18)',
+    backgroundColor: 'rgba(187,68,255,0.14)',
     borderBottomRightRadius: 6,
-    borderColor: 'rgba(187,68,255,0.30)',
+    borderColor: 'rgba(187,68,255,0.25)',
     shadowColor: Colors.lrt2,
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
     elevation: 4,
   },
   aiBubble: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(64,224,255,0.05)',
     borderBottomLeftRadius: 6,
-    borderColor: Colors.glassBorder,
-    ...Shadow.sm,
+    borderColor: 'rgba(64,224,255,0.12)',
+    shadowColor: Colors.electricCyan,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   // Image container with laser scan
   imageContainer: {
@@ -1202,7 +1347,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     backgroundColor: 'rgba(13,14,16,0.95)',
     borderTopWidth: 1,
-    borderTopColor: Colors.glassBorder,
+    borderTopColor: 'rgba(64,224,255,0.06)',
   },
   inputAction: {
     width: 40,
@@ -1216,12 +1361,12 @@ const styles = StyleSheet.create({
   },
   textInputWrapper: {
     flex: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: BorderRadius.xl,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
+    borderColor: 'rgba(64,224,255,0.10)',
     minHeight: 40,
     maxHeight: 100,
     justifyContent: 'center',

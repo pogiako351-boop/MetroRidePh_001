@@ -23,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useTextGeneration } from '@fastshot/ai';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   forceHealthCheck,
   loadAlerts,
@@ -142,6 +143,8 @@ export default function AdminScreen() {
   const [runningAI, setRunningAI]         = useState(false);
   const [aiAnalysis, setAiAnalysis]       = useState('');
   const [activeTab, setActiveTab]         = useState<'health' | 'traffic' | 'alerts' | 'sentinel' | 'sw'>('health');
+  const [runningDeepReset, setRunningDeepReset] = useState(false);
+  const [deepResetResult, setDeepResetResult]   = useState<string | null>(null);
 
   // AI hook
   const { generateText, isLoading: aiLoading } = useTextGeneration();
@@ -276,6 +279,118 @@ export default function AdminScreen() {
     setIncidents([]);
     setAiAnalysis('');
   }, []);
+
+  // ── Deep Reset / Re-establish Link ──────────────────────────────────────
+  const handleDeepReset = useCallback(async () => {
+    if (runningDeepReset) return;
+    setRunningDeepReset(true);
+    setDeepResetResult(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+    const steps: string[] = [];
+
+    try {
+      // Step 1: Clear all AsyncStorage cached data
+      const allKeys = await AsyncStorage.getAllKeys();
+      const cacheKeys = allKeys.filter(
+        (k) =>
+          k.startsWith('@metroride_cloud') ||
+          k.startsWith('@metroride_last_sync') ||
+          k.startsWith('@metroride_offline') ||
+          k.startsWith('@metroride_sync') ||
+          k.startsWith('@guardian_') ||
+          k.startsWith('@sentinel_')
+      );
+      if (cacheKeys.length > 0) {
+        await AsyncStorage.multiRemove(cacheKeys);
+      }
+      steps.push(`Cleared ${cacheKeys.length} cached entries`);
+
+      // Step 2: Purge browser caches (web only)
+      if (Platform.OS === 'web' && typeof caches !== 'undefined') {
+        try {
+          const names = await caches.keys();
+          await Promise.all(names.map((n) => caches.delete(n)));
+          steps.push(`Purged ${names.length} browser cache layers`);
+        } catch {
+          steps.push('Browser cache purge skipped');
+        }
+      }
+
+      // Step 3: Unregister and re-register Service Worker (web only)
+      if (
+        Platform.OS === 'web' &&
+        typeof navigator !== 'undefined' &&
+        'serviceWorker' in navigator
+      ) {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const reg of registrations) {
+            await reg.unregister();
+          }
+          steps.push(`Unregistered ${registrations.length} service worker(s)`);
+
+          // Re-register fresh
+          await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+          steps.push('Re-registered fresh service worker');
+        } catch {
+          steps.push('Service worker reset skipped');
+        }
+      }
+
+      // Step 4: Force fresh Supabase connectivity test with cache-busting
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        const testUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/rest/v1/stations?select=id&limit=1&_bust=${Date.now()}`;
+        const res = await fetch(testUrl, {
+          method: 'GET',
+          headers: {
+            apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
+            Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || ''}`,
+            Accept: 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+          cache: 'no-store',
+          signal: controller.signal,
+        } as RequestInit);
+        clearTimeout(timer);
+
+        if (res.ok) {
+          steps.push(`Supabase reconnected (HTTP ${res.status})`);
+        } else {
+          steps.push(`Supabase responded HTTP ${res.status}`);
+        }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Unknown error';
+        steps.push(`Supabase probe failed: ${msg}`);
+      }
+
+      // Step 5: Re-run health check
+      const [gStatus, diagReport] = await Promise.all([
+        forceHealthCheck(),
+        runConnectivityDiagnostic(),
+      ]);
+      setGuardianStatus(gStatus);
+      setDiagnosticReport(diagReport);
+      const refreshedAlerts = await loadAlerts();
+      setAlerts(refreshedAlerts);
+      steps.push('Health check completed');
+
+      setDeepResetResult(
+        `Deep Reset complete:\n${steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      steps.push(`Error: ${msg}`);
+      setDeepResetResult(`Deep Reset partial:\n${steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}`);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setRunningDeepReset(false);
+    }
+  }, [runningDeepReset]);
 
   // ── Render gates ───────────────────────────────────────────────────────
 
@@ -513,6 +628,84 @@ export default function AdminScreen() {
                 {runningHealth ? 'Running health check…' : 'Force Health Check'}
               </Text>
             </TouchableOpacity>
+
+            {/* Deep Reset / Re-establish Link */}
+            <TouchableOpacity
+              style={[styles.deepResetBtn, runningDeepReset && styles.deepResetBtnActive]}
+              onPress={handleDeepReset}
+              disabled={runningDeepReset}
+            >
+              {runningDeepReset ? (
+                <>
+                  <ActivityIndicator size="small" color="#FF4444" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.deepResetBtnTitle}>Deep Reset in progress…</Text>
+                    <Text style={styles.deepResetBtnSub}>Purging caches, resetting SW, probing Supabase</Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.deepResetIconBg}>
+                    <Ionicons name="nuclear" size={20} color="#FF4444" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.deepResetBtnTitle}>Deep Reset / Re-establish Link</Text>
+                    <Text style={styles.deepResetBtnSub}>
+                      Purge all caches, reset SW, flush network layer, re-probe Supabase with fresh credentials
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="rgba(255,68,68,0.5)" />
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Deep reset result */}
+            {!!deepResetResult && (
+              <View style={styles.deepResetResultCard}>
+                <View style={styles.deepResetResultHeader}>
+                  <Ionicons
+                    name={deepResetResult.includes('Error') || deepResetResult.includes('failed') ? 'warning' : 'checkmark-circle'}
+                    size={16}
+                    color={deepResetResult.includes('Error') || deepResetResult.includes('failed') ? '#FFB800' : '#22C55E'}
+                  />
+                  <Text style={[styles.deepResetResultTitle, {
+                    color: deepResetResult.includes('Error') || deepResetResult.includes('failed') ? '#FFB800' : '#22C55E',
+                  }]}>
+                    {deepResetResult.includes('Error') || deepResetResult.includes('failed') ? 'Partial Reset' : 'Reset Complete'}
+                  </Text>
+                </View>
+                <Text style={styles.deepResetResultText}>{deepResetResult}</Text>
+              </View>
+            )}
+
+            {/* Environment Variables Status */}
+            <View style={[styles.card, { marginTop: 12 }]}>
+              <Text style={styles.cardTitle}>Production Environment</Text>
+              <View style={styles.envRow}>
+                <Text style={styles.envKey}>SUPABASE_URL</Text>
+                <Text style={[styles.envVal, { color: process.env.EXPO_PUBLIC_SUPABASE_URL ? '#22C55E' : '#FF4444' }]}>
+                  {process.env.EXPO_PUBLIC_SUPABASE_URL ? `${process.env.EXPO_PUBLIC_SUPABASE_URL.slice(0, 28)}…` : 'MISSING'}
+                </Text>
+              </View>
+              <View style={styles.envRow}>
+                <Text style={styles.envKey}>ANON_KEY</Text>
+                <Text style={[styles.envVal, { color: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ? '#22C55E' : '#FF4444' }]}>
+                  {process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ? `${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY.slice(0, 12)}…` : 'MISSING'}
+                </Text>
+              </View>
+              <View style={styles.envRow}>
+                <Text style={styles.envKey}>NEWELL_API</Text>
+                <Text style={[styles.envVal, { color: process.env.EXPO_PUBLIC_NEWELL_API_URL ? '#22C55E' : '#FF4444' }]}>
+                  {process.env.EXPO_PUBLIC_NEWELL_API_URL ? 'Configured' : 'MISSING'}
+                </Text>
+              </View>
+              <View style={[styles.envRow, { borderBottomWidth: 0 }]}>
+                <Text style={styles.envKey}>PROJECT_ID</Text>
+                <Text style={[styles.envVal, { color: process.env.EXPO_PUBLIC_PROJECT_ID ? '#22C55E' : '#FF4444' }]}>
+                  {process.env.EXPO_PUBLIC_PROJECT_ID ? `${process.env.EXPO_PUBLIC_PROJECT_ID.slice(0, 12)}…` : 'MISSING'}
+                </Text>
+              </View>
+            </View>
           </>
         )}
 
@@ -1175,4 +1368,37 @@ const styles = StyleSheet.create({
   },
   offlineGuaranteeTitle: { fontSize: 14, fontWeight: '700', color: '#22C55E', marginBottom: 4 },
   offlineGuaranteeSub:   { fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 18 },
+
+  // Deep Reset
+  deepResetBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: 'rgba(255,68,68,0.06)',
+    borderWidth: 1, borderColor: 'rgba(255,68,68,0.25)',
+    borderRadius: 14, padding: 14, marginTop: 12,
+  },
+  deepResetBtnActive: { backgroundColor: 'rgba(255,68,68,0.03)', borderColor: 'rgba(255,68,68,0.15)' },
+  deepResetIconBg: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,68,68,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  deepResetBtnTitle: { fontSize: 14, fontWeight: '700', color: '#FF4444', marginBottom: 2 },
+  deepResetBtnSub:   { fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 15 },
+
+  deepResetResultCard: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12, padding: 14, marginTop: 10,
+  },
+  deepResetResultHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  deepResetResultTitle:  { fontSize: 13, fontWeight: '700' },
+  deepResetResultText:   { fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 17, fontFamily: 'monospace' },
+
+  // Environment rows
+  envRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  envKey: { fontSize: 11, color: 'rgba(255,255,255,0.45)', fontFamily: 'monospace', fontWeight: '600' },
+  envVal: { fontSize: 11, fontWeight: '600', fontFamily: 'monospace' },
 });
