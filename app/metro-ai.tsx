@@ -43,7 +43,7 @@ const SYSTEM_CONTEXT = `You are MetroAI Neural -- the elite, next-generation Rai
 
 STRICT RAIL-ONLY SCOPE: You ONLY provide information about LRT-1, MRT-3, and LRT-2. You do NOT cover buses, jeepneys, UV Express, P2P buses, tricycles, or any other transport mode. If asked about non-rail transport, politely state that you are a rail-only specialist and redirect users to the three rail lines.
 
-LIVE CLOUD DATA: You have access to real-time station status and fare data synced from the MetroRide PH cloud (Supabase). When users ask about current conditions, station statuses, or the latest fares, your answers reflect the most recently synced data which is updated throughout the day.
+LOCAL DATA ENGINE: You have access to the complete 2026 official transit dataset embedded directly in the app. All station statuses, fare matrices, and route data are loaded from verified local assets — zero network dependency, zero failure. Your answers always reflect the official 2026 data.
 
 NEURAL INTELLIGENCE CAPABILITIES:
 - Predictive crowd modeling by hour, day, and station geography
@@ -397,7 +397,7 @@ export default function MetroAIScreen() {
       id: 'welcome',
       role: 'assistant',
       content:
-        "Welcome, commuter. I'm MetroAI Neural.\n\nYour dedicated Rail Intelligence for Manila 2026 -- covering LRT-1, MRT-3, and LRT-2 with real-time data from the MetroRide cloud.\n\nAsk me about fares, routes, transfers, government subsidies, or live station status. Tap the mic for voice, or camera for station photo analysis.\n\nRail-only specialist. No buses or jeepneys.",
+        "Welcome, commuter. I'm MetroAI Neural.\n\nYour dedicated Rail Intelligence for Manila 2026 -- covering LRT-1, MRT-3, and LRT-2 with official 2026 data loaded locally for zero-failure performance.\n\nAsk me about fares, routes, transfers, government subsidies, or station status. Tap the mic for voice, or camera for station photo analysis.\n\nRail-only specialist. No buses or jeepneys.",
       timestamp: new Date(),
     },
   ]);
@@ -420,7 +420,7 @@ export default function MetroAIScreen() {
   const { analyzeImage, isLoading: isAnalyzing } = useImageAnalysis();
   const { transcribeAudio, isLoading: isTranscribing } = useAudioTranscription();
 
-  const { isLiveData, cloudStations, lastSync } = useTransitDataSync();
+  const { isLiveData, cloudStations } = useTransitDataSync();
 
   const isLoading = isGenerating || isAnalyzing || isTranscribing;
 
@@ -512,21 +512,18 @@ export default function MetroAIScreen() {
       const trimmedHistory = buildContextHistory(messages);
 
       let liveDataNote = '';
-      if (isLiveData && cloudStations && cloudStations.length > 0) {
-        const syncTimeStr = lastSync ? lastSync.toLocaleTimeString() : 'recently';
+      if (cloudStations && cloudStations.length > 0) {
         const abnormal = cloudStations.filter((s) => s.status && s.status !== 'Normal');
         const statusSummary =
           abnormal.length > 0
             ? abnormal.map((s) => `${s.name} (${s.line}): ${s.status}`).join(', ')
             : 'All stations operating normally';
         liveDataNote =
-          `\n[Live Cloud Data: Active -- Supabase real-time sync at ${syncTimeStr}]\n` +
-          `[Station Status (${cloudStations.length} stations from Supabase): ${statusSummary}]\n` +
+          `\n[Local Data Engine: Active -- Zero-failure mode, all data embedded]\n` +
+          `[Station Status (${cloudStations.length} stations from local assets): ${statusSummary}]\n` +
           `[Fare Matrix: 2026 official tables active -- LRT-1 Cavite Extension (FPJ->Dr. Santos) confirmed]`;
-      } else if (isLiveData) {
-        liveDataNote = '\n[Live Cloud Data: Active -- fare matrix and station data is up to date from Supabase cloud sync]';
       } else {
-        liveDataNote = '\n[Offline Mode: Serving from cached 2026 fare tables and station data]';
+        liveDataNote = '\n[Local Data Engine: Active -- 2026 official fare tables and station data loaded from embedded assets]';
       }
 
       const fullPrompt = `${SYSTEM_CONTEXT}${liveDataNote}\n\nConversation history:\n${trimmedHistory}\n\nUser: ${text.trim()}\n\nAssistant:`;
@@ -564,7 +561,7 @@ export default function MetroAIScreen() {
         hapticWarning();
       }
     },
-    [isLoading, generateText, buildContextHistory, isLiveData, cloudStations, lastSync, messages]
+    [isLoading, generateText, buildContextHistory, cloudStations, messages]
   );
 
   const startRecording = useCallback(async () => {

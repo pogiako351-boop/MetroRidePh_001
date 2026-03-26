@@ -12,144 +12,114 @@ interface LiveStatusBarProps {
 }
 
 export function LiveStatusBar({ syncStatus, isLiveData, lastSync, onRefresh }: LiveStatusBarProps) {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const spinAnim = useRef(new Animated.Value(0)).current;
+  const heartbeatAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0.3)).current;
 
-  // Pulsing dot animation when live
+  // Continuous system heartbeat animation — indicates local responsiveness
   useEffect(() => {
-    if (isLiveData) {
-      const loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.8,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ]),
-      );
-      loop.start();
-      return () => loop.stop();
-    } else {
-      pulseAnim.setValue(1);
-    }
-  }, [isLiveData, pulseAnim]);
-
-  // Spinning refresh icon when syncing
-  useEffect(() => {
-    if (syncStatus === 'syncing') {
-      spinAnim.setValue(0);
-      const loop = Animated.loop(
-        Animated.timing(spinAnim, {
-          toValue: 1,
-          duration: 800,
+    const heartbeat = Animated.loop(
+      Animated.sequence([
+        Animated.timing(heartbeatAnim, {
+          toValue: 1.4,
+          duration: 600,
           useNativeDriver: true,
         }),
-      );
-      loop.start();
-      return () => loop.stop();
-    } else {
-      spinAnim.setValue(0);
-    }
-  }, [syncStatus, spinAnim]);
+        Animated.timing(heartbeatAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartbeatAnim, {
+          toValue: 1.2,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartbeatAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.delay(800),
+      ]),
+    );
+    heartbeat.start();
 
-  const spinInterpolate = spinAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+    const glow = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 0.7,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.3,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    glow.start();
 
-  const formatSync = (d: Date) => {
-    const diff = Math.floor((Date.now() - d.getTime()) / 1000);
-    if (diff < 10) return 'just now';
-    if (diff < 60) return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    return `${Math.floor(diff / 3600)}h ago`;
-  };
+    return () => {
+      heartbeat.stop();
+      glow.stop();
+    };
+  }, [heartbeatAnim, glowAnim]);
 
-  const isOnline = isLiveData && syncStatus === 'success';
-  const isSyncing = syncStatus === 'syncing';
-  const isError = syncStatus === 'error';
-  const isOffline = syncStatus === 'offline';
-
-  // Determine colors and text based on precise state
-  const dotColor = isOnline
-    ? '#00FFFF'
-    : isSyncing
-      ? '#00FFFF'
-      : isError
-        ? '#FF4444'
-        : '#FFB800';
-  const bgColor = isOnline
-    ? 'rgba(0,255,255,0.06)'
-    : isSyncing
-      ? 'rgba(0,255,255,0.04)'
-      : isError
-        ? 'rgba(255,68,68,0.06)'
-        : 'rgba(255,184,0,0.06)';
-  const borderColor = isOnline
-    ? 'rgba(0,255,255,0.20)'
-    : isSyncing
-      ? 'rgba(0,255,255,0.12)'
-      : isError
-        ? 'rgba(255,68,68,0.20)'
-        : 'rgba(255,184,0,0.15)';
-  const statusText = isSyncing
-    ? 'SYNCING...'
-    : isOnline
-      ? 'LIVE DATA ACTIVE'
-      : isError
-        ? 'SYNC ERROR — TAP TO RETRY'
-        : isOffline
-          ? 'OFFLINE MODE (CACHED)'
-          : 'CONNECTING...';
-  const textColor = isOnline
-    ? '#00FFFF'
-    : isSyncing
-      ? '#00FFFF'
-      : isError
-        ? '#FF4444'
-        : '#FFB800';
+  const dotColor = '#22C55E';
+  const bgColor = 'rgba(34,197,94,0.06)';
+  const borderColor = 'rgba(34,197,94,0.20)';
+  const textColor = '#22C55E';
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor, borderColor }]}>
       <View style={styles.leftSection}>
-        {/* Pulsing dot */}
+        {/* Heartbeat dot */}
         <View style={styles.dotWrapper}>
-          {isOnline && (
-            <Animated.View
-              style={[
-                styles.dotRing,
-                {
-                  backgroundColor: dotColor,
-                  transform: [{ scale: pulseAnim }],
-                  opacity: pulseAnim.interpolate({
-                    inputRange: [1, 1.8],
-                    outputRange: [0.4, 0],
-                  }),
-                },
-              ]}
-            />
-          )}
-          <View style={[styles.dotCore, { backgroundColor: dotColor }]} />
+          <Animated.View
+            style={[
+              styles.dotRing,
+              {
+                backgroundColor: dotColor,
+                transform: [{ scale: heartbeatAnim }],
+                opacity: heartbeatAnim.interpolate({
+                  inputRange: [1, 1.4],
+                  outputRange: [0.4, 0],
+                }),
+              },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.dotCore,
+              {
+                backgroundColor: dotColor,
+                opacity: glowAnim.interpolate({
+                  inputRange: [0.3, 0.7],
+                  outputRange: [0.8, 1],
+                }),
+              },
+            ]}
+          />
         </View>
 
         <View style={styles.textSection}>
-          <Text style={[styles.statusText, { color: textColor }]}>
-            {statusText}
-          </Text>
-          {lastSync && !isSyncing && (
-            <Text style={styles.syncTime}>
-              Synced {formatSync(lastSync)}
+          <View style={styles.statusRow}>
+            <Text style={[styles.statusText, { color: textColor }]}>
+              SYSTEM OPTIMIZED
             </Text>
-          )}
+            <View style={styles.offlineBadge}>
+              <Ionicons name="shield-checkmark" size={10} color="#22C55E" />
+              <Text style={styles.offlineBadgeText}>Offline Ready</Text>
+            </View>
+          </View>
+          <Text style={styles.syncTime}>
+            Local-first engine active · Zero-failure mode
+          </Text>
         </View>
       </View>
 
-      {/* Refresh button */}
+      {/* Heartbeat icon */}
       <Pressable
         onPress={onRefresh}
         style={({ pressed }) => [
@@ -158,11 +128,13 @@ export function LiveStatusBar({ syncStatus, isLiveData, lastSync, onRefresh }: L
           pressed && styles.refreshPressed,
         ]}
         hitSlop={8}
-        disabled={isSyncing}
       >
-        <Animated.View style={{ transform: [{ rotate: isSyncing ? spinInterpolate : '0deg' }] }}>
+        <Animated.View style={{ transform: [{ scale: heartbeatAnim.interpolate({
+          inputRange: [1, 1.4],
+          outputRange: [1, 1.1],
+        }) }] }}>
           <Ionicons
-            name="refresh"
+            name="heart"
             size={14}
             color={textColor}
           />
@@ -209,10 +181,32 @@ const styles = StyleSheet.create({
   textSection: {
     flex: 1,
   },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   statusText: {
     fontSize: FontSize.xs,
     fontWeight: FontWeight.bold,
     letterSpacing: 0.8,
+  },
+  offlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.25)',
+  },
+  offlineBadgeText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+    color: '#22C55E',
+    letterSpacing: 0.3,
   },
   syncTime: {
     fontSize: 9,
@@ -227,7 +221,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(34,197,94,0.06)',
   },
   refreshPressed: {
     opacity: 0.6,

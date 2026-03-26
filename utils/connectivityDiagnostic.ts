@@ -1,20 +1,13 @@
 /**
- * MetroRide PH — Pulse Diagnostic Engine v2
- * Self-healing connectivity and infrastructure validation.
+ * MetroRide PH — Pulse Diagnostic Engine v3 (Local-First)
+ * Zero-failure architecture: validates local data integrity,
+ * Newell AI availability, Service Worker status, and cache health.
  *
- * Checks: Internet · Supabase · Newell AI · Env Vars
- *         Service Worker · Cache Integrity
- *
- * If core services (Internet + Supabase) both fail, auto-triggers
- * offline mode so the app serves cached station/fare data.
+ * No Supabase dependency. All transit data is embedded locally.
  */
-
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SUPABASE_TARGET_REGION, supabaseUrl, supabaseAnonKey } from './supabase';
 
 export interface DiagnosticResult {
   label: string;
-  /** 'waiting' = intentionally deferred (prerequisite failed), not an error */
   status: 'pass' | 'fail' | 'warn' | 'checking' | 'waiting';
   detail: string;
   durationMs?: number;
@@ -27,17 +20,46 @@ export interface FullDiagnosticReport {
   offlineModeTriggered: boolean;
 }
 
-// ── Local env-var sanitiser ───────────────────────────────────────────────
+// ── 1. Local Data Integrity Check ────────────────────────────────────────
 
-function cleanVar(value: string | undefined): string {
-  if (!value) return '';
-  return value
-    .replace(/^['"`]|['"`]$/g, '')
-    .replace(/[\r\n]/g, '')
-    .trim();
+function checkLocalDataIntegrity(): DiagnosticResult {
+  const start = Date.now();
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { ALL_STATIONS } = require('@/constants/stations');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { MRT3_FARE_MATRIX, LRT1_FARE_MATRIX, LRT2_FARE_MATRIX } = require('@/constants/fares');
+    const stationCount = ALL_STATIONS?.length ?? 0;
+    const mrt3Rows = MRT3_FARE_MATRIX?.length ?? 0;
+    const lrt1Rows = LRT1_FARE_MATRIX?.length ?? 0;
+    const lrt2Rows = LRT2_FARE_MATRIX?.length ?? 0;
+    const durationMs = Date.now() - start;
+
+    if (stationCount >= 51 && mrt3Rows > 0 && lrt1Rows > 0 && lrt2Rows > 0) {
+      return {
+        label: 'Local Data Integrity',
+        status: 'pass',
+        detail: `${stationCount} stations, MRT-3(${mrt3Rows}), LRT-1(${lrt1Rows}), LRT-2(${lrt2Rows}) fare matrices verified (${durationMs}ms)`,
+        durationMs,
+      };
+    }
+    return {
+      label: 'Local Data Integrity',
+      status: 'warn',
+      detail: `Partial data: ${stationCount} stations, MRT-3(${mrt3Rows}), LRT-1(${lrt1Rows}), LRT-2(${lrt2Rows})`,
+      durationMs,
+    };
+  } catch {
+    return {
+      label: 'Local Data Integrity',
+      status: 'fail',
+      detail: 'Failed to load local transit data assets',
+      durationMs: Date.now() - start,
+    };
+  }
 }
 
-// ── 1. Internet check ─────────────────────────────────────────────────────
+// ── 2. Internet check ─────────────────────────────────────────────────────
 
 async function checkInternet(): Promise<DiagnosticResult> {
   const start = Date.now();
@@ -46,134 +68,28 @@ async function checkInternet(): Promise<DiagnosticResult> {
     const timer = setTimeout(() => controller.abort(), 5000);
     await fetch('https://www.google.com', {
       method: 'HEAD',
-      mode:   'no-cors',
-      cache:  'no-store',
+      mode: 'no-cors',
+      cache: 'no-store',
       signal: controller.signal,
     });
     clearTimeout(timer);
     return {
-      label:      'Internet Connectivity',
-      status:     'pass',
-      detail:     `Reachable (${Date.now() - start}ms)`,
+      label: 'Internet Connectivity',
+      status: 'pass',
+      detail: `Reachable (${Date.now() - start}ms)`,
       durationMs: Date.now() - start,
     };
   } catch {
     return {
-      label:      'Internet Connectivity',
-      status:     'fail',
-      detail:     'google.com unreachable — verifying via Supabase…',
+      label: 'Internet Connectivity',
+      status: 'warn',
+      detail: `Not reachable (${Date.now() - start}ms) — app operates fully offline`,
       durationMs: Date.now() - start,
     };
   }
 }
 
-// ── 2. Supabase check ─────────────────────────────────────────────────────
-// Uses the already-cleaned and validated supabaseUrl / supabaseAnonKey that
-// were resolved once at module-load time in utils/supabase.ts.  Re-reading
-// raw env vars here would risk introducing a mismatch between the key used
-// by the Supabase client and the key sent by the diagnostic request.
-
-async function checkSupabase(): Promise<DiagnosticResult> {
-  // Reuse the module-level cleaned values — same source of truth as the client
-  const url = supabaseUrl;
-  const key = supabaseAnonKey;
-
-  if (!url || !key) {
-    const missing = !url ? 'EXPO_PUBLIC_SUPABASE_URL' : 'EXPO_PUBLIC_SUPABASE_ANON_KEY';
-    return {
-      label:  'Supabase Reachability',
-      status: 'fail',
-      detail: `Missing Config — ${missing} not resolved. Cannot authenticate.`,
-    };
-  }
-
-  const start = Date.now();
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    // Query a specific table with minimal payload instead of hitting the root
-    // /rest/v1/ endpoint which triggers OpenAPI schema discovery and 401 errors.
-    const res = await fetch(`${url}/rest/v1/stations?select=id&limit=1`, {
-      method: 'GET',
-      headers: {
-        apikey:            key,
-        Authorization:     `Bearer ${key}`,
-        Accept:            'application/json',
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    const durationMs = Date.now() - start;
-
-    if (res.status === 401) {
-      const hint = key ? `Key prefix: ${key.slice(0, 8)}…` : 'Key: (empty)';
-      return {
-        label:  'Supabase Reachability',
-        status: 'fail',
-        detail: `HTTP 401 via ${SUPABASE_TARGET_REGION} (${durationMs}ms) — ${hint}`,
-        durationMs,
-      };
-    }
-    if (res.ok) {
-      return {
-        label:      'Supabase Reachability',
-        status:     'pass',
-        detail:     `Connected via ${SUPABASE_TARGET_REGION} (${durationMs}ms)`,
-        durationMs,
-      };
-    }
-    return {
-      label:      'Supabase Reachability',
-      status:     'warn',
-      detail:     `HTTP ${res.status} via ${SUPABASE_TARGET_REGION} (${durationMs}ms)`,
-      durationMs,
-    };
-  } catch (err: unknown) {
-    const durationMs = Date.now() - start;
-    const errorName = err instanceof Error ? err.name : 'Unknown';
-    const errorMsg = err instanceof Error ? err.message : String(err);
-
-    let detail = 'Cannot reach Supabase endpoint';
-    if (errorName === 'AbortError') {
-      detail = `Timeout after ${durationMs}ms — endpoint not responding`;
-    } else if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
-      detail = `Network error (${durationMs}ms) — CORS block, DNS failure, or no internet`;
-    } else if (errorMsg.includes('CORS')) {
-      detail = `CORS error (${durationMs}ms) — origin ${typeof window !== 'undefined' ? window.location.origin : 'unknown'} may not be allowed`;
-    } else {
-      detail = `${errorName}: ${errorMsg} (${durationMs}ms)`;
-    }
-
-    console.error(`[Pulse] Supabase check failed:`, detail);
-
-    return {
-      label:      'Supabase Reachability',
-      status:     'fail',
-      detail,
-      durationMs,
-    };
-  }
-}
-
-// ── 3. Newell AI check ────────────────────────────────────────────────────
-
-async function attemptNewell(url: string, timeoutMs: number) {
-  const start = Date.now();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    await fetch(url, {
-      method:  'HEAD',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      signal:  controller.signal,
-    });
-    clearTimeout(timer);
-    return { ok: true, durationMs: Date.now() - start };
-  } catch {
-    clearTimeout(timer);
-    return { ok: false, durationMs: Date.now() - start };
-  }
-}
+// ── 3. Newell AI check ──────────────────────────────────────────────────
 
 async function checkNewellAI(): Promise<DiagnosticResult> {
   const url = process.env.EXPO_PUBLIC_NEWELL_API_URL;
@@ -181,65 +97,60 @@ async function checkNewellAI(): Promise<DiagnosticResult> {
     return { label: 'Newell AI Service', status: 'warn', detail: 'EXPO_PUBLIC_NEWELL_API_URL not set' };
   }
 
-  let last = 0;
+  const start = Date.now();
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const { ok, durationMs } = await attemptNewell(url, 2000);
-    last = durationMs;
-    if (ok) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2000);
+      await fetch(url, {
+        method: 'HEAD',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      const durationMs = Date.now() - start;
       return {
-        label:      'Newell AI Service',
-        status:     'pass',
-        detail:     attempt > 1 ? `Reachable after retry (${durationMs}ms)` : `Reachable (${durationMs}ms)`,
+        label: 'Newell AI Service',
+        status: 'pass',
+        detail: attempt > 1 ? `Reachable after retry (${durationMs}ms)` : `Reachable (${durationMs}ms)`,
         durationMs,
       };
+    } catch {
+      if (attempt < 2) await new Promise<void>((r) => setTimeout(r, 400));
     }
-    if (attempt < 2) await new Promise<void>((r) => setTimeout(r, 400));
   }
   return {
-    label:      'Newell AI Service',
-    status:     'fail',
-    detail:     `Unreachable after 2 attempts — AI features may be limited`,
-    durationMs: last,
+    label: 'Newell AI Service',
+    status: 'warn',
+    detail: `Unreachable after 2 attempts — AI features may use fallback responses`,
+    durationMs: Date.now() - start,
   };
 }
 
-// ── 4. Environment variables check ───────────────────────────────────────
+// ── 4. Environment variables check ──────────────────────────────────────
 
 function checkEnvVars(): DiagnosticResult {
   const missing: string[] = [];
-
-  if (
-    !process.env.EXPO_PUBLIC_SUPABASE_URL &&
-    !process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    !process.env.SUPABASE_URL
-  ) missing.push('SUPABASE_URL');
-
-  if (
-    !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY &&
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-    !process.env.SUPABASE_ANON_KEY
-  ) missing.push('SUPABASE_ANON_KEY');
 
   if (!process.env.EXPO_PUBLIC_NEWELL_API_URL)
     missing.push('NEWELL_API_URL');
 
   if (missing.length === 0) {
-    return { label: 'Environment Variables', status: 'pass', detail: 'All required vars present (SUPABASE_URL, SUPABASE_ANON_KEY, NEWELL_API_URL)' };
+    return { label: 'Environment Variables', status: 'pass', detail: 'All required vars present (NEWELL_API_URL). Local-first mode — no database env vars needed.' };
   }
-  const detail = `Missing: ${missing.join(', ')}`;
   return {
-    label:  'Environment Variables',
-    status: missing.length <= 1 ? 'warn' : 'fail',
-    detail,
+    label: 'Environment Variables',
+    status: 'warn',
+    detail: `Missing: ${missing.join(', ')} — AI features may be limited`,
   };
 }
 
-// ── 5. Service Worker check ───────────────────────────────────────────────
+// ── 5. Service Worker check ─────────────────────────────────────────────
 
 async function checkServiceWorker(): Promise<DiagnosticResult> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
     return {
-      label:  'Service Worker',
+      label: 'Service Worker',
       status: 'warn',
       detail: 'Service Worker API not available (native build)',
     };
@@ -249,22 +160,21 @@ async function checkServiceWorker(): Promise<DiagnosticResult> {
     const reg = await navigator.serviceWorker.getRegistration('/');
     if (!reg) {
       return {
-        label:  'Service Worker',
+        label: 'Service Worker',
         status: 'warn',
-        detail: 'No service worker registered — offline mode unavailable',
+        detail: 'No service worker registered — offline caching unavailable',
       };
     }
 
     const worker = reg.active || reg.installing || reg.waiting;
     if (!worker) {
       return {
-        label:  'Service Worker',
+        label: 'Service Worker',
         status: 'warn',
         detail: 'Service worker found but not active yet',
       };
     }
 
-    // Request version from the service worker
     const version = await new Promise<string>((resolve) => {
       try {
         const channel = new MessageChannel();
@@ -278,54 +188,42 @@ async function checkServiceWorker(): Promise<DiagnosticResult> {
 
     const state = reg.active ? 'active' : reg.waiting ? 'waiting' : 'installing';
     return {
-      label:  'Service Worker',
+      label: 'Service Worker',
       status: 'pass',
       detail: `${state} · cache version ${version} · offline resilience ready`,
     };
   } catch {
     return {
-      label:  'Service Worker',
+      label: 'Service Worker',
       status: 'fail',
       detail: 'Failed to query service worker status',
     };
   }
 }
 
-// ── 6. Cache integrity check ──────────────────────────────────────────────
+// ── 6. Cache integrity check ────────────────────────────────────────────
 
 async function checkCacheIntegrity(): Promise<DiagnosticResult> {
   if (typeof caches === 'undefined') {
     return {
-      label:  'Cache Integrity',
+      label: 'Cache Integrity',
       status: 'warn',
       detail: 'Cache Storage API not available (native build)',
     };
   }
 
   try {
-    const names    = await caches.keys();
-    const mr       = names.filter((n) => n.startsWith('metroride-'));
+    const names = await caches.keys();
+    const mr = names.filter((n) => n.startsWith('metroride-'));
 
     if (mr.length === 0) {
       return {
-        label:  'Cache Integrity',
+        label: 'Cache Integrity',
         status: 'warn',
         detail: 'No MetroRide caches found — first run or cache cleared',
       };
     }
 
-    const required = ['metroride-shell', 'metroride-assets', 'metroride-data'];
-    const missing  = required.filter((r) => !mr.some((c) => c.startsWith(r)));
-
-    if (missing.length > 0) {
-      return {
-        label:  'Cache Integrity',
-        status: 'warn',
-        detail: `Missing cache layers: ${missing.join(', ')} — offline coverage partial`,
-      };
-    }
-
-    // Count total cached entries
     let totalEntries = 0;
     for (const name of mr) {
       try {
@@ -338,162 +236,56 @@ async function checkCacheIntegrity(): Promise<DiagnosticResult> {
     }
 
     return {
-      label:  'Cache Integrity',
+      label: 'Cache Integrity',
       status: 'pass',
       detail: `${mr.length} layers active · ${totalEntries} entries cached · offline-ready`,
     };
   } catch {
     return {
-      label:  'Cache Integrity',
+      label: 'Cache Integrity',
       status: 'fail',
       detail: 'Failed to query Cache Storage',
     };
   }
 }
 
-// ── Self-healing fallback application ────────────────────────────────────
-// When the Service Worker is active and cache layers are populated,
-// any service that is unreachable can be transparently served from its
-// offline fallback.  In this state the system IS functionally healthy,
-// so the diagnostic reflects that by upgrading 'fail' → 'pass'.
-
-function applySelfHealingFallbacks(
-  results: DiagnosticResult[],
-  swCheck:    DiagnosticResult,
-  cacheCheck: DiagnosticResult,
-): DiagnosticResult[] {
-  const allFallbacksReady = swCheck.status === 'pass' && cacheCheck.status === 'pass';
-  if (!allFallbacksReady) return results;
-
-  return results.map((result): DiagnosticResult => {
-    if (result.status !== 'fail') return result;
-
-    switch (result.label) {
-      case 'Internet Connectivity':
-        return {
-          ...result,
-          status: 'pass',
-          detail: `Offline Mode Active · All data served from Service Worker cache · (${result.detail})`,
-        };
-
-      case 'Supabase Reachability':
-        return {
-          ...result,
-          status: 'pass',
-          detail: `Cache Fallback Active · Station & fare data available from Service Worker cache · (${result.detail})`,
-        };
-
-      case 'Newell AI Service':
-        return {
-          ...result,
-          status: 'pass',
-          detail: `MetroAI Offline Mode · Cached context active, live responses paused · (${result.detail})`,
-        };
-
-      default:
-        return result;
-    }
-  });
-}
-
-// ── Full diagnostic run ───────────────────────────────────────────────────
+// ── Full diagnostic run ────────────────────────────────────────────────
 
 export async function runConnectivityDiagnostic(): Promise<FullDiagnosticReport> {
   const envCheck = checkEnvVars();
+  const localDataCheck = checkLocalDataIntegrity();
 
-  // Phase 1 — parallel: Internet + Supabase + SW + Cache
-  const [internet, supabaseCheck, swCheck, cacheCheck] = await Promise.all([
+  const [internet, newellCheck, swCheck, cacheCheck] = await Promise.all([
     checkInternet(),
-    checkSupabase(),
+    checkNewellAI(),
     checkServiceWorker(),
     checkCacheIntegrity(),
   ]);
 
-  // Determine if offline fallbacks are ready (used for Newell AI gate and self-healing)
-  const hasOfflineFallback = swCheck.status === 'pass' && cacheCheck.status === 'pass';
-
-  // Phase 2 — Newell AI: run when Supabase passes OR when offline fallbacks are ready
-  // (if fallbacks exist, we still validate the AI endpoint so the result can be healed)
-  const resolvedNewell: DiagnosticResult =
-    supabaseCheck.status === 'pass' || hasOfflineFallback
-      ? await checkNewellAI()
-      : {
-          label:  'Newell AI Service',
-          status: 'waiting',
-          detail: 'Waiting for Auth — Supabase must return 200 OK before AI validation',
-        };
-
-  // Heuristic: treat Internet as PASS when Supabase is confirmed reachable
-  const resolvedInternet: DiagnosticResult =
-    internet.status === 'fail' && supabaseCheck.status === 'pass'
-      ? {
-          label:      'Internet Connectivity',
-          status:     'pass',
-          detail:     'Verified via Supabase (mobile data / restricted network)',
-          durationMs: internet.durationMs,
-        }
-      : internet;
-
-  // Raw results — used for offline-mode trigger calculation (before healing)
-  const rawResults: DiagnosticResult[] = [
+  const results: DiagnosticResult[] = [
+    localDataCheck,
     envCheck,
-    resolvedInternet,
-    supabaseCheck,
-    resolvedNewell,
+    internet,
+    newellCheck,
     swCheck,
     cacheCheck,
   ];
 
-  // ── Auto offline mode trigger (based on raw, pre-healing results) ─────
-  const offlineModeTriggered =
-    resolvedInternet.status === 'fail' && supabaseCheck.status === 'fail';
+  // In local-first mode, offline mode is never "triggered" since we don't depend on network
+  const offlineModeTriggered = false;
 
-  try {
-    if (offlineModeTriggered) {
-      await AsyncStorage.setItem('@metroride_offline_mode', 'true');
-    } else {
-      await AsyncStorage.removeItem('@metroride_offline_mode');
-    }
-  } catch {
-    // Silent — diagnostics must never crash the app
-  }
-
-  // ── Apply self-healing: promote 'fail' to 'pass' when fallbacks cover the gap
-  const results = applySelfHealingFallbacks(rawResults, swCheck, cacheCheck);
-
-  // ── Overall status calculation (based on healed results) ─────────────
-  // 'waiting' is not counted as fail/warn
+  // Overall status: local data is the critical path
   const failCount = results.filter((r) => r.status === 'fail').length;
   const warnCount = results.filter((r) => r.status === 'warn').length;
 
-  // Use healed values for connectivity validity check
-  const healedInternet  = results.find((r) => r.label === 'Internet Connectivity') ?? resolvedInternet;
-  const healedSupabase  = results.find((r) => r.label === 'Supabase Reachability') ?? supabaseCheck;
-
-  const isConnectivityValid =
-    healedSupabase.status === 'pass' && healedInternet.status === 'pass';
-
-  // Self-healing is active when both SW and cache fallbacks are populated.
-  // In this state the app serves all data from cache — it IS functionally healthy.
-  const isSelfHealingActive = swCheck.status === 'pass' && cacheCheck.status === 'pass';
-
-  // Online health path: both primary connectivity services are reachable (post-heuristic).
-  const isOnlineHealthy = healedInternet.status === 'pass' && healedSupabase.status === 'pass';
-
-  // ── Overall status: 'All Green' when online OR when offline self-healing covers the gaps ──
-  //  a) Online path  — Internet + Supabase reachable (post-heuristic / healed)
-  //  b) Offline path — Service Worker + Cache Integrity both pass (self-healing active)
-  //  Either path with no hard failures (failCount === 0) yields 'healthy'.
   const overallStatus: 'healthy' | 'degraded' | 'critical' =
-    failCount >= 2
+    localDataCheck.status === 'fail'
       ? 'critical'
-      : failCount === 1
-        ? 'degraded'
-        : (isOnlineHealthy || isSelfHealingActive)
-          ? 'healthy'
-          : warnCount >= 2 || !isConnectivityValid
-            ? 'degraded'
-            : 'healthy';
+      : failCount >= 2
+        ? 'critical'
+        : failCount === 1 || warnCount >= 3
+          ? 'degraded'
+          : 'healthy';
 
   return {
     timestamp: new Date(),

@@ -8,11 +8,10 @@ interface LiveDataBadgeProps {
   supabaseMode?: boolean;
 }
 
-export default function LiveDataBadge({ visible = true, lastSync, compact = false, supabaseMode = false }: LiveDataBadgeProps) {
+export default function LiveDataBadge({ visible = true, compact = false }: LiveDataBadgeProps) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const [showTooltip, setShowTooltip] = useState(false);
-  const [tooltipTime, setTooltipTime] = useState('');
 
   useEffect(() => {
     Animated.timing(opacityAnim, {
@@ -44,24 +43,11 @@ export default function LiveDataBadge({ visible = true, lastSync, compact = fals
 
   if (!visible) return null;
 
-  const formatSync = (d: Date) => {
-    const diff = Math.floor((Date.now() - d.getTime()) / 1000);
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    return `${Math.floor(diff / 3600)}h ago`;
-  };
-
   const handleTooltipToggle = () => {
-    if (!showTooltip) {
-      const now = lastSync ?? new Date();
-      setTooltipTime(
-        now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      );
-    }
     setShowTooltip((p) => !p);
   };
 
-  const dotColor = supabaseMode ? '#3ECF8E' : '#22C55E';
+  const dotColor = '#22C55E';
 
   return (
     <View style={styles.wrapper}>
@@ -84,11 +70,8 @@ export default function LiveDataBadge({ visible = true, lastSync, compact = fals
             <View style={[styles.dotCore, { backgroundColor: dotColor }]} />
           </View>
           <Text style={[styles.label, compact && styles.labelCompact, { color: dotColor }]}>
-            {supabaseMode ? 'Verified via Supabase' : 'Live Data Active'}
+            Local Data Active
           </Text>
-          {!compact && lastSync && (
-            <Text style={[styles.sub, { color: dotColor + 'AA' }]}>Synced {formatSync(lastSync)}</Text>
-          )}
         </Animated.View>
       </Pressable>
 
@@ -102,19 +85,18 @@ export default function LiveDataBadge({ visible = true, lastSync, compact = fals
             } as object),
           ]}
         >
-          {/* Arrow pointer */}
-          <View style={[styles.tooltipArrow, { borderBottomColor: 'rgba(62,207,142,0.2)' }]} />
+          <View style={[styles.tooltipArrow, { borderBottomColor: 'rgba(34,197,94,0.2)' }]} />
           <View style={styles.tooltipInner}>
             <View style={styles.tooltipRow}>
               <View style={[styles.tooltipStatusDot, { backgroundColor: dotColor }]} />
-              <Text style={styles.tooltipKey}>Database Status</Text>
-              <Text style={[styles.tooltipVal, { color: dotColor }]}>Operational</Text>
+              <Text style={styles.tooltipKey}>Data Source</Text>
+              <Text style={[styles.tooltipVal, { color: dotColor }]}>Local Assets</Text>
             </View>
             <View style={[styles.tooltipDivider, { backgroundColor: dotColor + '28' }]} />
             <View style={styles.tooltipRow}>
               <View style={[styles.tooltipStatusDot, { backgroundColor: dotColor + '80' }]} />
-              <Text style={styles.tooltipKey}>Last Sync</Text>
-              <Text style={styles.tooltipVal}>{tooltipTime}</Text>
+              <Text style={styles.tooltipKey}>Mode</Text>
+              <Text style={styles.tooltipVal}>Zero-Failure</Text>
             </View>
           </View>
         </View>
@@ -130,9 +112,9 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(62,207,142,0.10)',
+    backgroundColor: 'rgba(34,197,94,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(62,207,142,0.25)',
+    borderColor: 'rgba(34,197,94,0.25)',
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -167,20 +149,16 @@ const styles = StyleSheet.create({
   labelCompact: {
     fontSize: 10,
   },
-  sub: {
-    fontSize: 10,
-    fontWeight: '400',
-  },
   // Tooltip
   tooltip: {
     marginTop: 6,
     backgroundColor: 'rgba(10,12,15,0.92)',
     borderWidth: 1,
-    borderColor: 'rgba(62,207,142,0.2)',
+    borderColor: 'rgba(34,197,94,0.2)',
     borderRadius: 10,
     overflow: 'hidden',
     minWidth: 210,
-    shadowColor: '#3ECF8E',
+    shadowColor: '#22C55E',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
