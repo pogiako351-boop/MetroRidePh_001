@@ -73,22 +73,4 @@ config.server = {
 
 
 
-// --- FASTSHOT WEB POLYFILLS LEGACY START ---
-// FASTSHOT_WEB_POLYFILLS_HOOK
-module.exports = (() => {
-  const helperPath = process.env.FASTSHOT_METRO_POLYFILL_HELPER;
-  if (!helperPath) {
-    return config;
-  }
-
-  try {
-    const { withFastshotWebPolyfills } = require(helperPath);
-    return withFastshotWebPolyfills(config, {
-      polyfillsDir: process.env.FASTSHOT_WEB_POLYFILLS_DIR,
-    });
-  } catch (error) {
-    console.warn('[Fastshot] Failed to apply web polyfills helper:', error);
-    return config;
-  }
-})();
-// --- FASTSHOT WEB POLYFILLS LEGACY END ---
+module.exports = config;

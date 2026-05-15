@@ -81,7 +81,8 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "baseUrl": ""
     },
     "owner": "mr.vin",
     "extra": {
