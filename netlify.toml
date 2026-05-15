@@ -33,7 +33,7 @@
 
     # Content Security Policy — strict, no inline scripts/eval
     # Allows connections only to MetroRide origins, Supabase, and Newell AI
-    Content-Security-Policy = "default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://wgjaepoxjxooxhdainod.supabase.co wss://wgjaepoxjxooxhdainod.supabase.co https://newell.fastshot.ai https://oauth.fastshot.ai https://www.google.com; font-src 'self' data:; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' blob: https://pagead2.googlesyndication.com https://www.googletagservices.com https://adservice.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://wgjaepoxjxooxhdainod.supabase.co wss://wgjaepoxjxooxhdainod.supabase.co https://newell.fastshot.ai https://oauth.fastshot.ai https://www.google.com https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net; font-src 'self' data:; worker-src 'self' blob:; manifest-src 'self'; frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;"
 
 # ── Static asset cache headers ───────────────────────────────────────────────
 [[headers]]
@@ -57,6 +57,29 @@
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
     Service-Worker-Allowed = "/"
+
+[[headers]]
+  for = "/ads.txt"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+    Content-Type = "text/plain"
+
+[[headers]]
+  for = "/robots.txt"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+    Content-Type = "text/plain"
+
+# ── Static verification files — served as-is (bypass SPA rewrite) ───────────
+[[redirects]]
+  from   = "/ads.txt"
+  to     = "/ads.txt"
+  status = 200
+
+[[redirects]]
+  from   = "/robots.txt"
+  to     = "/robots.txt"
+  status = 200
 
 # ── SPA routing — rewrite all routes to index.html ──────────────────────────
 [[redirects]]
